@@ -1,5 +1,7 @@
 using System;
+using Unity.VisualScripting;
 using UnityEngine;
+using UnityEngine.TextCore.Text;
 
 public class BaseNode : MonoBehaviour
 {
@@ -9,10 +11,12 @@ public class BaseNode : MonoBehaviour
     [Header("Data")]
     // ===== NodeData =====
     public int groupId;
-    public string id;
+    public int id;
     public Vector3 DataPos;
     protected Camera cam;
-
+    public string character;
+    public string str_1;
+    
 
     [Header("Runtime")]
     // ===== Runtime =====
@@ -25,8 +29,7 @@ public class BaseNode : MonoBehaviour
     public Edge nextEdge;
 
     public BaseNode NextNode;
-    public BaseNode PrevNode;
-
+    public BaseNode PrevNode;   
 
     public event Action<BaseNode> Picked;
     public event Action<BaseNode, Vector3> Dragging;
@@ -34,6 +37,8 @@ public class BaseNode : MonoBehaviour
     private Vector3 _dragOffset;
     public float offsetY = 0f;
     public float snap;
+
+    public TsvCommand tsvCommand;
 
 
 
@@ -192,5 +197,35 @@ public class BaseNode : MonoBehaviour
         pos.y = offsetY;
         transform.position = pos;
         DataPos = pos;
+    }
+
+
+    public void SetCommnadData(TsvCommand cmd)
+    {
+        character = cmd.Get("character");
+        str_1 = cmd.Get("str_1");
+        id = cmd.Id;    
+    }
+
+    public void SetLinkNext(BaseNode baseNode)
+    {
+        //1) 노드 생성
+        if (nextEdge == null)
+        {
+            var obj = Instantiate(edge);
+            nextEdge = obj.GetComponent<Edge>();
+            nextEdge.MyNode = this;
+            nextEdge.ban.Add(prevButton);
+            nextEdge.ban.Add(nextButton);
+            nextEdge.gameObject.SetActive(true);
+        }
+        
+        
+        //2) 노드 연결
+        NextNode = baseNode;        
+        baseNode.PrevNode = this;
+        baseNode.prevEdge = nextEdge;
+
+        nextEdge.SetNameless(nextButton.transform.position, NextNode.prevButton.transform.position);
     }
 }

@@ -15,10 +15,15 @@ public class Edge : MonoBehaviour
 
     public void SetNameless(Vector3 start, Vector3 end)
     {
+        if (targetDot == null)
+        {
+            targetDot = Instantiate(prefab);
+        }
+
         var dir = end - start;
         float len = dir.magnitude;
         var mid = (start + end) * 0.5f;
-        mid.y = -20f;
+        mid.y = -3f;
         transform.position = mid;
 
         float angleY = Mathf.Atan2(dir.x, dir.z) * Mathf.Rad2Deg;
@@ -44,7 +49,7 @@ public class Edge : MonoBehaviour
         var dir = end - start;
         float len = dir.magnitude;
         var mid = (start + end) * 0.5f;
-        mid.y = -20f;
+        mid.y = -3f;
         transform.position = mid;
 
         float angleY = Mathf.Atan2(dir.x, dir.z) * Mathf.Rad2Deg;
@@ -68,7 +73,7 @@ public class Edge : MonoBehaviour
             float lenX = dir.magnitude;
 
             mid = (start + targetDot.transform.position) * 0.5f;
-            mid.y = -20f;
+            mid.y = -3f;
             transform.position = mid;
 
             angleY = Mathf.Atan2(dir.x, dir.z) * Mathf.Rad2Deg;

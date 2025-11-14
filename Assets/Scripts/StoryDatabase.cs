@@ -3,6 +3,8 @@ using UnityEngine;
 
 public sealed class StoryDatabase : MonoBehaviour
 {
+    public static StoryDatabase instance;
+
     [Tooltip("Resources 경로(확장자 제외). 예: 'Story/episode1'")]
     public string resourcesPath = "Story/episode1";
 
@@ -11,6 +13,14 @@ public sealed class StoryDatabase : MonoBehaviour
 
     void Awake()
     {
+        //1) 싱글톤
+        if (instance == null)
+            instance = this;
+        else
+            Destroy(this.gameObject);
+
+
+        //2) 리소스 확인
         var ta = Resources.Load<TextAsset>(resourcesPath);
         if (ta == null)
         {
@@ -18,6 +28,7 @@ public sealed class StoryDatabase : MonoBehaviour
             return;
         }
 
+        //3) tsv 데이터 파싱
         Commands = TsvParser.Parse(ta);
         ById.Clear();
         foreach (var cmd in Commands)
