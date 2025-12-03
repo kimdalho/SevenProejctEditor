@@ -1,5 +1,7 @@
 using System;
+using TMPro;
 using Unity.VisualScripting;
+using UnityEditor.Experimental.GraphView;
 using UnityEngine;
 using UnityEngine.TextCore.Text;
 
@@ -30,6 +32,9 @@ public class BaseNode : MonoBehaviour
 
     public BaseNode NextNode;
     public BaseNode PrevNode;   
+
+    public TextMeshProUGUI idTmp;
+    public TextMeshProUGUI statTmp;
 
     public event Action<BaseNode> Picked;
     public event Action<BaseNode, Vector3> Dragging;
@@ -99,6 +104,7 @@ public class BaseNode : MonoBehaviour
 
     public void OnMouseDown()
     {
+        NodeGraphManager.instance.selectNode = this;
         dragging = true;
         BeginDrag();
         Picked?.Invoke(this);
@@ -150,8 +156,6 @@ public class BaseNode : MonoBehaviour
 
         if (prevEdge != null && PrevNode != null)
             PrevNode.nextEdge.SetNameless(PrevNode.nextButton.transform.position, PrevNode.NextNode.prevButton.transform.position);
-
-
     }
 
     public void OnMouseUp()
@@ -204,7 +208,12 @@ public class BaseNode : MonoBehaviour
     {
         character = cmd.Get("character");
         str_1 = cmd.Get("str_1");
-        id = cmd.Id;    
+        id = cmd.Id;
+        
+        idTmp.text = $"ID {cmd.Id}";
+        statTmp.text = cmd.StateStr;
+
+        gameObject.name = $"node {cmd.Id}";
     }
 
     public void SetLinkNext(BaseNode baseNode)
@@ -227,5 +236,16 @@ public class BaseNode : MonoBehaviour
         baseNode.prevEdge = nextEdge;
 
         nextEdge.SetNameless(nextButton.transform.position, NextNode.prevButton.transform.position);
+    }
+
+    public void Remove()
+    {
+        PrevNode.NextNode = null;
+        NextNode.PrevNode = null;
+
+        prevEdge.Remove();
+        nextEdge.Remove();
+        
+        Destroy(this.gameObject);
     }
 }

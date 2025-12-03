@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -134,5 +135,14 @@ public class Edge : MonoBehaviour
             }
         }
         return best;
+    }
+
+    public void Remove()
+    {
+        if(targetDot != null)
+            Destroy(targetDot.gameObject);
+
+        Destroy(this.gameObject);
+
     }
 }

@@ -19,6 +19,9 @@ public interface INodeDataGetService
 
 public class NodeGraphManager : MonoBehaviour
 {
+    [Header("Camera")]
+    public Camera mainCam;
+
     [Header("Prefabs")]
     public BaseNode NodePrefab;
     public BaseNode NodePrefab1;
@@ -38,36 +41,71 @@ public class NodeGraphManager : MonoBehaviour
         else
             Destroy(this.gameObject);
 
+
+        mainCam = Camera.main;
+
     }
 
     private void Update()
     {
-        if(Input.GetKeyDown(KeyCode.N))
+        //if(Input.GetKeyDown(KeyCode.N))
+        //{
+        //    CreateNodeToType(eNodeType.None, NodePrefab);
+        //}
+        //if (Input.GetKeyDown(KeyCode.A))
+        //{
+        //    CreateNodeToType(eNodeType.Say, NodePrefab1);
+        //}
+        //if (Input.GetKeyDown(KeyCode.A))
+        //{
+        //    CreateNodeToType(eNodeType.Fade, NodePrefab2);
+        //}
+        //if (Input.GetKeyDown(KeyCode.A))
+        //{
+        //    CreateNodeToType(eNodeType.CharacterShow, NodePrefab3);
+        //}
+        //if (Input.GetKeyDown(KeyCode.A))
+        //{
+        //    CreateNodeToType(eNodeType.None, NodePrefab4);
+        //}
+
+        //삭제
+        if(Input.GetKeyDown(KeyCode.X))
         {
-            CreateNodeToType(eNodeType.None, NodePrefab);
-        }
-        if (Input.GetKeyDown(KeyCode.A))
-        {
-            CreateNodeToType(eNodeType.Say, NodePrefab1);
-        }
-        if (Input.GetKeyDown(KeyCode.A))
-        {
-            CreateNodeToType(eNodeType.Fade, NodePrefab2);
-        }
-        if (Input.GetKeyDown(KeyCode.A))
-        {
-            CreateNodeToType(eNodeType.CharacterShow, NodePrefab3);
-        }
-        if (Input.GetKeyDown(KeyCode.A))
-        {
-            CreateNodeToType(eNodeType.None, NodePrefab4);
+            selectNode.Remove();
         }
 
-        //데이터 노드화
-        if(Input.GetKeyDown(KeyCode.D))
+        if(Input.GetKey(KeyCode.S))
         {
-            CreateNodeToTsvCommand();
+            var camPos = mainCam.transform.position;
+            camPos.z -= 0.1f;
+            mainCam.transform.position = camPos;    
         }
+        if (Input.GetKey(KeyCode.W))
+        {
+            var camPos = mainCam.transform.position;
+            camPos.z += 0.1f;
+            mainCam.transform.position = camPos;
+        }
+        if (Input.GetKey(KeyCode.A))
+        {
+            var camPos = mainCam.transform.position;
+            camPos.x -= 0.1f;
+            mainCam.transform.position = camPos;
+        }
+        if (Input.GetKey(KeyCode.D))
+        {
+            var camPos = mainCam.transform.position;
+            camPos.x += 0.1f;
+            mainCam.transform.position = camPos;
+        }
+
+
+        //데이터 노드화
+        //if (Input.GetKeyDown(KeyCode.D))
+        //{
+        //    CreateNodeToTsvCommand();
+        //}
 
     }
 
@@ -83,6 +121,9 @@ public class NodeGraphManager : MonoBehaviour
 
     public Vector3 startPos = new Vector3(-3.5f,0,2.5f);
     public float offset = 0.5f;
+    [Header("Logic")]
+    public BaseNode selectNode;
+
     public void CreateNodeToTsvCommand()
     {
         //-3.5,0,2.5 -> -2,0,2.5
@@ -101,11 +142,12 @@ public class NodeGraphManager : MonoBehaviour
             switch(data[i].StateStr)
             {
                 case "say":
-                    node = Instantiate(NodePrefab1);
-                    break;
+                    node = Instantiate(NodePrefab1);                    
+                    break;                
                 default:
-                    node = Instantiate(NodePrefab);
-                    break;
+                    Debug.LogWarning($"{data[i].StateStr} 알수없는 스탯 데이터가 확인되었습니다");
+                    //node = Instantiate(NodePrefab);
+                    continue;                    
             }
 
            
