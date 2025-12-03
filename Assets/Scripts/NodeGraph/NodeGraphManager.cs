@@ -28,12 +28,10 @@ public class NodeGraphManager : MonoBehaviour
     public BaseNode NodePrefab2;
     public BaseNode NodePrefab3;
     public BaseNode NodePrefab4;
-
-
     public static NodeGraphManager instance;
-
     public List<BaseNode> nodes = new();
 
+    
     private void Awake()
     {
         if (instance == null)
@@ -100,6 +98,17 @@ public class NodeGraphManager : MonoBehaviour
             mainCam.transform.position = camPos;
         }
 
+        if(Input.GetKey(KeyCode.Alpha1))
+        {
+            mainCam.orthographicSize += 0.1f;
+        }
+
+        if (Input.GetKey(KeyCode.Alpha2))
+        {
+            mainCam.orthographicSize -= 0.1f;
+        }
+
+
 
         //데이터 노드화
         //if (Input.GetKeyDown(KeyCode.D))
@@ -164,10 +173,13 @@ public class NodeGraphManager : MonoBehaviour
             if (nodes[i].id <= -1) return;
             nodes[i].nextButton.gameObject.name = $"시작_{i}";
             nodes[i].prevButton.gameObject.name = $"이전_{i}";
-
-
             nodes[i].SetLinkNext(nodes[i+1]);
         }
+    }
+
+    public void SaveTSV()
+    {
+
     }
 
 }

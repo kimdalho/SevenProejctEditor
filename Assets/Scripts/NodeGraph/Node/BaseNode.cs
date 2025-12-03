@@ -1,11 +1,16 @@
 using System;
 using TMPro;
-using Unity.VisualScripting;
-using UnityEditor.Experimental.GraphView;
 using UnityEngine;
-using UnityEngine.TextCore.Text;
 
-public class BaseNode : MonoBehaviour
+/// <summary>
+/// 여기서 생각을 하나 잘못함
+/// 노드는 단순히 그래프를 편집하기 위한 도구로 사용되었어야했다.
+/// 그리고 비주얼노벨의 데이터를 별도의 맴버 변수로 부작시키면 
+/// 편집 로직과 비주얼노벨 로직이 완벽하게 분리된다.
+/// </summary>
+
+
+public class BaseNode : MonoBehaviour , INodeDataGetService
 {
     [Header("Prefab")]
     public GameObject edge;
@@ -13,12 +18,13 @@ public class BaseNode : MonoBehaviour
     [Header("Data")]
     // ===== NodeData =====
     public int groupId;
-    public int id;
-    public Vector3 DataPos;
-    protected Camera cam;
+    public int id;    
     public string character;
     public string str_1;
-    
+    public float wait;
+
+    public Vector3 DataPos;
+    protected Camera cam;
 
     [Header("Runtime")]
     // ===== Runtime =====
@@ -204,7 +210,7 @@ public class BaseNode : MonoBehaviour
     }
 
 
-    public void SetCommnadData(TsvCommand cmd)
+    public virtual void SetCommnadData(TsvCommand cmd)
     {
         character = cmd.Get("character");
         str_1 = cmd.Get("str_1");
@@ -240,12 +246,25 @@ public class BaseNode : MonoBehaviour
 
     public void Remove()
     {
-        PrevNode.NextNode = null;
-        NextNode.PrevNode = null;
+        if(PrevNode != null)
+        {
+            PrevNode.NextNode = null;
+            prevEdge.Remove();
+        }
+           
 
-        prevEdge.Remove();
-        nextEdge.Remove();
-        
+        if (NextNode != null)
+        {
+            NextNode.PrevNode = null;
+            nextEdge.Remove();
+        }
+                            
+        NodeGraphManager.instance.nodes.Remove(this);        
         Destroy(this.gameObject);
+    }
+
+    public void SetData()
+    {
+        
     }
 }

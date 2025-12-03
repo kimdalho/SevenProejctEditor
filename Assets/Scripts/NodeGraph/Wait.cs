@@ -1,18 +1,18 @@
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.UI;
+using UnityEngine.XR;
 
-public class Wait : MonoBehaviour
+public class Wait : BaseNode
 {
-    // Start is called before the first frame update
-    void Start()
-    {
-        
-    }
+    public InputField InputField;
 
-    // Update is called once per frame
-    void Update()
+    public override void SetCommnadData(TsvCommand cmd)
     {
-        
+        base.SetCommnadData(cmd);
+
+        InputField.text = wait.ToString();
+
     }
 }
