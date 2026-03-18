@@ -1,8 +1,6 @@
 using System.Collections;
-using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
-using UnityEngine.XR;
 
 public class Wait : BaseNode
 {
@@ -11,8 +9,11 @@ public class Wait : BaseNode
     public override void SetCommnadData(TsvCommand cmd)
     {
         base.SetCommnadData(cmd);
-
         InputField.text = wait.ToString();
+    }
 
+    public override IEnumerator Execute(NodePlayer player)
+    {
+        yield return new WaitForSeconds(wait);
     }
 }

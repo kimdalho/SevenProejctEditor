@@ -1,12 +1,13 @@
 using System;
+using System.Collections;
 using TMPro;
 using UnityEngine;
 
 /// <summary>
-/// ¿©±â¼­ »ı°¢À» ÇÏ³ª Àß¸øÇÔ
-/// ³ëµå´Â ´Ü¼øÈ÷ ±×·¡ÇÁ¸¦ ÆíÁıÇÏ±â À§ÇÑ µµ±¸·Î »ç¿ëµÇ¾ú¾î¾ßÇß´Ù.
-/// ±×¸®°í ºñÁÖ¾ó³ëº§ÀÇ µ¥ÀÌÅÍ¸¦ º°µµÀÇ ¸É¹ö º¯¼ö·Î ºÎÀÛ½ÃÅ°¸é 
-/// ÆíÁı ·ÎÁ÷°ú ºñÁÖ¾ó³ëº§ ·ÎÁ÷ÀÌ ¿Ïº®ÇÏ°Ô ºĞ¸®µÈ´Ù.
+/// ï¿½ï¿½ï¿½â¼­ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½Ï³ï¿½ ï¿½ß¸ï¿½ï¿½ï¿½
+/// ï¿½ï¿½ï¿½ï¿½ ï¿½Ü¼ï¿½ï¿½ï¿½ ï¿½×·ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½Ï±ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½Ç¾ï¿½ï¿½ï¿½ï¿½ï¿½ß´ï¿½.
+/// ï¿½×¸ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½Ö¾ï¿½ëº§ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½Í¸ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½É¹ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½Û½ï¿½Å°ï¿½ï¿½ 
+/// ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½Ö¾ï¿½ëº§ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½Ïºï¿½ï¿½Ï°ï¿½ ï¿½Ğ¸ï¿½ï¿½È´ï¿½.
 /// </summary>
 
 
@@ -56,6 +57,7 @@ public class BaseNode : MonoBehaviour , INodeDataGetService
     public void Awake()
     {
         if (!cam) cam = Camera.main;
+        if (prevButton == null || nextButton == null) return;
         prevButton.MyNode = this;
         nextButton.MyNode = this;
         prevButton.press += OnPressPrev;
@@ -121,12 +123,12 @@ public class BaseNode : MonoBehaviour , INodeDataGetService
         var inputPos = (Input.touchCount > 0) ? (Vector3)Input.GetTouch(0).position : Input.mousePosition;
         var ray = cam.ScreenPointToRay(inputPos);
 
-        // ¿ÀºêÁ§Æ®ÀÇ ÇöÀç ³ôÀÌ¸¦ Áö³ª´Â Æò¸é
+        // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Æ®ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½Ì¸ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½
         var plane = new Plane(Vector3.up, new Vector3(0f, transform.position.y, 0f));
         if (plane.Raycast(ray, out var enter))
         {
             var hit = ray.GetPoint(enter);
-            _dragOffset = transform.position - hit;   // Áß½É-Å¬¸¯ÁöÁ¡ Â÷ÀÌ º¸Á¸
+            _dragOffset = transform.position - hit;   // ï¿½ß½ï¿½-Å¬ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½
         }
         else
         {         
@@ -138,14 +140,14 @@ public class BaseNode : MonoBehaviour , INodeDataGetService
     {
         if (!dragging) return;
 
-        // 1) Æ÷ÀÎÅÍ ¡æ Æò¸é È÷Æ®
+        // 1) ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ ï¿½ï¿½ï¿½ ï¿½ï¿½Æ®
         var inputPos = (Input.touchCount > 0) ? (Vector3)Input.GetTouch(0).position : Input.mousePosition;
         var ray = cam.ScreenPointToRay(inputPos);
         var plane = new Plane(Vector3.up, new Vector3(0f, transform.position.y, 0f));
         if (plane.Raycast(ray, out var enter))
         {
             var hit = ray.GetPoint(enter);
-            mousePos = hit + _dragOffset;  // ¿ÀÇÁ¼Â Àû¿ë
+            mousePos = hit + _dragOffset;  // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½
             
         }
         else
@@ -212,10 +214,17 @@ public class BaseNode : MonoBehaviour , INodeDataGetService
 
     public virtual void SetCommnadData(TsvCommand cmd)
     {
+        tsvCommand = cmd;
         character = cmd.Get("character");
         str_1 = cmd.Get("str_1");
         id = cmd.Id;
-        
+
+        // wait / duration ì½ê¸°
+        if (cmd.Has("wait"))
+            wait = cmd.GetFloat("wait", 0f);
+        else if (cmd.Has("duration"))
+            wait = cmd.GetFloat("duration", 0f);
+
         idTmp.text = $"ID {cmd.Id}";
         statTmp.text = cmd.StateStr;
 
@@ -224,7 +233,7 @@ public class BaseNode : MonoBehaviour , INodeDataGetService
 
     public void SetLinkNext(BaseNode baseNode)
     {
-        //1) ³ëµå »ı¼º
+        //1) ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½
         if (nextEdge == null)
         {
             var obj = Instantiate(edge);
@@ -236,7 +245,7 @@ public class BaseNode : MonoBehaviour , INodeDataGetService
         }
         
         
-        //2) ³ëµå ¿¬°á
+        //2) ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½
         NextNode = baseNode;        
         baseNode.PrevNode = this;
         baseNode.prevEdge = nextEdge;
@@ -263,8 +272,13 @@ public class BaseNode : MonoBehaviour , INodeDataGetService
         Destroy(this.gameObject);
     }
 
+    public virtual IEnumerator Execute(NodePlayer player)
+    {
+        yield break;
+    }
+
     public void SetData()
     {
-        
+
     }
 }

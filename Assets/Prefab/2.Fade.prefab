@@ -748,15 +748,15 @@ MonoBehaviour:
   m_GameObject: {fileID: 4997609288457745356}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: e0fdc2056c3655d4bb3d6421a38d8e95, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
+  m_Script: {fileID: 11500000, guid: d809358342678244ea5b07952bc23565, type: 3}
+  m_Name:
+  m_EditorClassIdentifier:
   edge: {fileID: 1571908629009354713, guid: 535b0bf43e2a1444193d14bdfb99cf08, type: 3}
   groupId: 0
   id: 0
   DataPos: {x: 0, y: 0, z: 0}
-  character: 
-  str_1: 
+  character:
+  str_1:
   dragging: 0
   mousePos: {x: 0, y: 0, z: 0}
   prevButton: {fileID: 5328717273405713918}
