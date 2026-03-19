@@ -26,6 +26,7 @@ public class CutScenePlayer : MonoBehaviour
     private DialogueUI dialogueUI;
     private FadeUI fadeUI;
     private CharacterDisplay characterDisplay;
+    private ChoiceUI choiceUI;
     private TextMeshProUGUI progressTMP;
     private TextMeshProUGUI commandInfoTMP;
     private TextMeshProUGUI hintTMP;
@@ -102,6 +103,7 @@ public class CutScenePlayer : MonoBehaviour
         dialogueUI = canvasInstance.GetComponentInChildren<DialogueUI>(true);
         fadeUI = canvasInstance.GetComponentInChildren<FadeUI>(true);
         characterDisplay = canvasInstance.GetComponentInChildren<CharacterDisplay>(true);
+        choiceUI = canvasInstance.GetComponentInChildren<ChoiceUI>(true);
 
         // DebugInfo TMP — 이름으로 검색
         var allTMPs = canvasInstance.GetComponentsInChildren<TextMeshProUGUI>(true);
@@ -119,6 +121,7 @@ public class CutScenePlayer : MonoBehaviour
         dialogueUI.Hide();
         fadeUI.SetClear();
         characterDisplay.HideAll();
+        if (choiceUI != null) choiceUI.Hide();
     }
 
     // ── 재생 API ─────────────────────────────────────
@@ -146,6 +149,7 @@ public class CutScenePlayer : MonoBehaviour
         dialogueUI.Hide();
         fadeUI.SetClear();
         characterDisplay.HideAll();
+        if (choiceUI != null) choiceUI.Hide();
     }
 
     private void ReturnToEditor()
@@ -166,13 +170,32 @@ public class CutScenePlayer : MonoBehaviour
     {
         Debug.Log($"[CutScene] 시뮬레이션 시작 — 총 {commands.Count}개 커맨드");
 
+        // ID → 인덱스 맵
+        var idToIndex = new Dictionary<int, int>();
         for (int i = 0; i < commands.Count; i++)
+            idToIndex[commands[i].Id] = i;
+
+        int idx = 0;
+        while (idx >= 0 && idx < commands.Count)
         {
-            currentIndex = i + 1;
-            var cmd = commands[i];
+            currentIndex = idx + 1;
+            var cmd = commands[idx];
             UpdateProgress(cmd);
 
-            yield return ExecuteCommand(cmd);
+            if (cmd.StateStr == "choice")
+            {
+                yield return ExecuteChoice(cmd);
+                int targetId = GetChoiceTargetId(cmd, choiceUI.SelectedIndex);
+                if (targetId >= 0 && idToIndex.TryGetValue(targetId, out int targetIdx))
+                    idx = targetIdx;
+                else
+                    break;
+            }
+            else
+            {
+                yield return ExecuteCommand(cmd);
+                idx++;
+            }
         }
 
         Debug.Log("[CutScene] 시뮬레이션 완료 — 아무 키나 눌러 에디터로 복귀");
@@ -196,6 +219,7 @@ public class CutScenePlayer : MonoBehaviour
             "fade" => $"fade  dir={cmd.StateInt} dur={cmd.GetFloat("duration", cmd.GetFloat("wait", 1f))} ease={cmd.Get("easeType", "Linear")}",
             "wait" => $"wait  {cmd.GetFloat("wait", 0f)}s",
             "showcharacter" => $"showcharacter  [{cmd.name}] → {cmd.Get("endLocation", "Mid")} ease={cmd.Get("easeType", "OutCubic")}",
+            "choice" => $"choice  [{cmd.Get("options")}]",
             _ => cmd.StateStr
         };
         commandInfoTMP.text = detail;
@@ -205,6 +229,24 @@ public class CutScenePlayer : MonoBehaviour
     {
         if (string.IsNullOrEmpty(s)) return "";
         return s.Length <= max ? s : s.Substring(0, max) + "...";
+    }
+
+    // ── Choice 실행 ──────────────────────────────────
+
+    private IEnumerator ExecuteChoice(TsvCommand cmd)
+    {
+        string optStr = cmd.Get("options");
+        var options = new List<string>(optStr.Split('|'));
+        yield return choiceUI.ShowChoices(options);
+    }
+
+    private int GetChoiceTargetId(TsvCommand cmd, int selectedIndex)
+    {
+        string targetStr = cmd.Get("targets");
+        if (string.IsNullOrEmpty(targetStr)) return -1;
+        var parts = targetStr.Split('|');
+        if (selectedIndex < 0 || selectedIndex >= parts.Length) return -1;
+        return int.TryParse(parts[selectedIndex].Trim(), out int id) ? id : -1;
     }
 
     // ── 커맨드 실행 ──────────────────────────────────

@@ -61,12 +61,17 @@ public class BaseNode : MonoBehaviour , INodeDataGetService
     public void Awake()
     {
         if (!cam) cam = Camera.main;
-        if (prevButton == null || nextButton == null) return;
-        prevButton.MyNode = this;
-        nextButton.MyNode = this;
-        prevButton.press += OnPressPrev;
-        nextButton.press += OnPressNext;
-        nextButton.endPress += OnNextEndPress;
+        if (prevButton != null)
+        {
+            prevButton.MyNode = this;
+            prevButton.press += OnPressPrev;
+        }
+        if (nextButton != null)
+        {
+            nextButton.MyNode = this;
+            nextButton.press += OnPressNext;
+            nextButton.endPress += OnNextEndPress;
+        }
     }
 
     private void OnNextEndPress()

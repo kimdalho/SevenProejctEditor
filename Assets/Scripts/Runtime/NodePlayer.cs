@@ -13,6 +13,7 @@ public class NodePlayer : MonoBehaviour
     public DialogueUI dialogueUI;
     public FadeUI fadeUI;
     public CharacterDisplay characterDisplay;
+    public ChoiceUI choiceUI;
 
     [Header("State")]
     public bool isPlaying;
@@ -47,11 +48,13 @@ public class NodePlayer : MonoBehaviour
         dialogueUI = canvasInstance.GetComponentInChildren<DialogueUI>(true);
         fadeUI = canvasInstance.GetComponentInChildren<FadeUI>(true);
         characterDisplay = canvasInstance.GetComponentInChildren<CharacterDisplay>(true);
+        choiceUI = canvasInstance.GetComponentInChildren<ChoiceUI>(true);
 
         // 초기 상태
         dialogueUI.Hide();
         fadeUI.SetClear();
         characterDisplay.HideAll();
+        if (choiceUI != null) choiceUI.Hide();
 
         runtimeCanvas.gameObject.SetActive(false);
     }
@@ -105,6 +108,7 @@ public class NodePlayer : MonoBehaviour
         dialogueUI.Hide();
         fadeUI.SetClear();
         characterDisplay.HideAll();
+        if (choiceUI != null) choiceUI.Hide();
         runtimeCanvas.gameObject.SetActive(false);
     }
 

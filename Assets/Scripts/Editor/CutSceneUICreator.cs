@@ -135,6 +135,85 @@ public static class CutSceneUICreator
         dialogueSO.ApplyModifiedPropertiesWithoutUndo();
 
         // ══════════════════════════════════════════════
+        // 2.5) ChoicePanel (DialoguePanel 위)
+        // ══════════════════════════════════════════════
+        var choicePanelObj = CreateFullScreenRect(canvasObj.transform, "ChoicePanel");
+        var choiceCG = choicePanelObj.AddComponent<CanvasGroup>();
+        choiceCG.alpha = 0f;
+        choiceCG.blocksRaycasts = false;
+        var choiceUIComp = choicePanelObj.AddComponent<ChoiceUI>();
+
+        // ChoiceBox (화면 중앙 세로 배치)
+        var choiceBoxObj = new GameObject("ChoiceBox");
+        choiceBoxObj.transform.SetParent(choicePanelObj.transform, false);
+        var choiceBoxRT = choiceBoxObj.AddComponent<RectTransform>();
+        choiceBoxRT.anchorMin = new Vector2(0.25f, 0.3f);
+        choiceBoxRT.anchorMax = new Vector2(0.75f, 0.8f);
+        choiceBoxRT.offsetMin = Vector2.zero;
+        choiceBoxRT.offsetMax = Vector2.zero;
+
+        var choiceBoxLayout = choiceBoxObj.AddComponent<VerticalLayoutGroup>();
+        choiceBoxLayout.spacing = 12f;
+        choiceBoxLayout.childForceExpandHeight = false;
+        choiceBoxLayout.childForceExpandWidth = true;
+        choiceBoxLayout.childControlHeight = true;
+        choiceBoxLayout.childControlWidth = true;
+        choiceBoxLayout.childAlignment = TextAnchor.MiddleCenter;
+        choiceBoxLayout.padding = new RectOffset(20, 20, 20, 20);
+
+        var choiceButtons = new Button[4];
+        var choiceTexts = new TextMeshProUGUI[4];
+
+        for (int i = 0; i < 4; i++)
+        {
+            var btnObj = new GameObject($"ChoiceButton_{i}");
+            btnObj.transform.SetParent(choiceBoxObj.transform, false);
+
+            var btnRT = btnObj.AddComponent<RectTransform>();
+            var layoutElem = btnObj.AddComponent<LayoutElement>();
+            layoutElem.preferredHeight = 60f;
+
+            var btnImg = btnObj.AddComponent<Image>();
+            btnImg.color = new Color(0.15f, 0.15f, 0.25f, 0.9f);
+
+            var btnOutline = btnObj.AddComponent<Outline>();
+            btnOutline.effectColor = new Color(0.5f, 0.7f, 1f, 0.5f);
+            btnOutline.effectDistance = new Vector2(2f, 2f);
+
+            choiceButtons[i] = btnObj.AddComponent<Button>();
+
+            var btnTextObj = new GameObject("Text");
+            btnTextObj.transform.SetParent(btnObj.transform, false);
+            var btnTextRT = btnTextObj.AddComponent<RectTransform>();
+            btnTextRT.anchorMin = Vector2.zero;
+            btnTextRT.anchorMax = Vector2.one;
+            btnTextRT.offsetMin = new Vector2(20f, 0f);
+            btnTextRT.offsetMax = new Vector2(-20f, 0f);
+
+            choiceTexts[i] = btnTextObj.AddComponent<TextMeshProUGUI>();
+            choiceTexts[i].fontSize = 28f;
+            choiceTexts[i].alignment = TextAlignmentOptions.MidlineLeft;
+            choiceTexts[i].color = Color.white;
+            choiceTexts[i].text = $"선택지 {i + 1}";
+        }
+
+        // ChoiceUI 필드 연결
+        var choiceSO = new SerializedObject(choiceUIComp);
+        choiceSO.FindProperty("canvasGroup").objectReferenceValue = choiceCG;
+
+        var btnsProp = choiceSO.FindProperty("buttons");
+        btnsProp.arraySize = 4;
+        for (int i = 0; i < 4; i++)
+            btnsProp.GetArrayElementAtIndex(i).objectReferenceValue = choiceButtons[i];
+
+        var txtsProp = choiceSO.FindProperty("buttonTexts");
+        txtsProp.arraySize = 4;
+        for (int i = 0; i < 4; i++)
+            txtsProp.GetArrayElementAtIndex(i).objectReferenceValue = choiceTexts[i];
+
+        choiceSO.ApplyModifiedPropertiesWithoutUndo();
+
+        // ══════════════════════════════════════════════
         // 3) FadePanel (맨 앞)
         // ══════════════════════════════════════════════
         var fadePanelObj = CreateFullScreenRect(canvasObj.transform, "FadePanel");

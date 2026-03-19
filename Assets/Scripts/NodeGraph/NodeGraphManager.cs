@@ -33,6 +33,7 @@ public class NodeGraphManager : MonoBehaviour
     public BaseNode NodePrefab2;
     public BaseNode NodePrefab3;
     public BaseNode NodePrefab4;
+    public BaseNode NodePrefab5;   // Choice
     public static NodeGraphManager instance;
     public List<BaseNode> nodes = new();
 
@@ -242,6 +243,9 @@ public class NodeGraphManager : MonoBehaviour
                 case "showcharacter":
                     node = Instantiate(NodePrefab4);
                     break;
+                case "choice":
+                    node = Instantiate(NodePrefab5);
+                    break;
                 default:
                     Debug.LogWarning($"[NodeGraph] 알 수 없는 타입: {data[i].StateStr}");
                     continue;
@@ -267,6 +271,27 @@ public class NodeGraphManager : MonoBehaviour
             if (nodes[i].id <= -1) return;
             nodes[i].SetLinkNext(nodes[i + 1]);
         }
+
+        // 3) Choice 노드 분기 타겟 복원
+        foreach (var n in nodes)
+        {
+            if (n is Choice choice)
+            {
+                choice.ResolveBranchTargets(nodes);
+                // Choice의 기본 NextNode(자동링크된 것) 제거
+                if (choice.NextNode != null)
+                {
+                    choice.NextNode.PrevNode = null;
+                    choice.NextNode.prevEdge = null;
+                }
+                if (choice.nextEdge != null)
+                {
+                    choice.nextEdge.Remove();
+                    choice.nextEdge = null;
+                }
+                choice.NextNode = null;
+            }
+        }
     }
 
     public void SaveTSV()
@@ -290,14 +315,8 @@ public class NodeGraphManager : MonoBehaviour
         }
         if (start == null) start = nodes[0];
 
-        var current = start;
         var visited = new HashSet<BaseNode>();
-        while (current != null && !visited.Contains(current))
-        {
-            ordered.Add(current);
-            visited.Add(current);
-            current = current.NextNode;
-        }
+        CollectDFS(start, ordered, visited);
 
         // 체인에 포함되지 않은 노드도 끝에 추가
         foreach (var n in nodes)
@@ -346,6 +365,18 @@ public class NodeGraphManager : MonoBehaviour
                 extraKeys.Add("easeType");
         }
 
+        // Choice 전용 키 보장
+        bool hasChoice = false;
+        foreach (var n in ordered)
+        {
+            if (n is Choice) { hasChoice = true; break; }
+        }
+        if (hasChoice)
+        {
+            if (keySet.Add("options")) extraKeys.Add("options");
+            if (keySet.Add("targets")) extraKeys.Add("targets");
+        }
+
         // 3) TSV 문자열 작성
         var sb = new StringBuilder();
 
@@ -370,6 +401,7 @@ public class NodeGraphManager : MonoBehaviour
             // 파생 노드 타입 캐스팅
             var sc = n as ShowCharacter;
             var fade = n as Fade;
+            var choice = n as Choice;
 
             foreach (var key in extraKeys)
             {
@@ -391,6 +423,16 @@ public class NodeGraphManager : MonoBehaviour
                     sb.Append(sc.easeType.ToString());
                 else if (fade != null && key.Equals("easeType", StringComparison.OrdinalIgnoreCase))
                     sb.Append(fade.easeType.ToString());
+                // Choice 전용
+                else if (choice != null && key.Equals("options", StringComparison.OrdinalIgnoreCase))
+                    sb.Append(string.Join("|", choice.options));
+                else if (choice != null && key.Equals("targets", StringComparison.OrdinalIgnoreCase))
+                {
+                    var ids = new List<string>();
+                    foreach (var bn in choice.branchNodes)
+                        ids.Add(bn != null ? bn.id.ToString() : "-1");
+                    sb.Append(string.Join("|", ids));
+                }
                 else
                     sb.Append(n.tsvCommand?.Get(key, "") ?? "");
             }
@@ -430,9 +472,12 @@ public class NodeGraphManager : MonoBehaviour
             }
             if (start == null) start = nodes[0];
 
-            var current = start;
+            // DFS로 모든 분기 포함
+            var orderedNodes = new List<BaseNode>();
             var visited = new HashSet<BaseNode>();
-            while (current != null && !visited.Contains(current))
+            CollectDFS(start, orderedNodes, visited);
+
+            foreach (var current in orderedNodes)
             {
                 // tsvCommand가 있으면 그대로, 없으면 현재 필드로 생성
                 var cmd = current.tsvCommand ?? new TsvCommand
@@ -464,10 +509,17 @@ public class NodeGraphManager : MonoBehaviour
                     cmd.Fields["easeType"] = fade.easeType.ToString();
                     cmd.Fields["duration"] = fade.wait.ToString("F1");
                 }
+                else if (current is Choice choiceNode)
+                {
+                    cmd.Fields["options"] = string.Join("|", choiceNode.options);
+                    var ids = new List<string>();
+                    foreach (var bn in choiceNode.branchNodes)
+                        ids.Add(bn != null ? bn.id.ToString() : "-1");
+                    cmd.Fields["targets"] = string.Join("|", ids);
+                    cmd.StateInt = choiceNode.options.Count;
+                }
 
                 commands.Add(cmd);
-                visited.Add(current);
-                current = current.NextNode;
             }
         }
         else if (StoryDatabase.instance != null && StoryDatabase.instance.Commands.Count > 0)
@@ -509,6 +561,7 @@ public class NodeGraphManager : MonoBehaviour
         if (node.tsvCommand != null && !string.IsNullOrEmpty(node.tsvCommand.StateStr))
             return node.tsvCommand.StateStr;
 
+        if (node is Choice) return "choice";
         if (node is Say) return "say";
         if (node is Fade) return "fade";
         if (node is Wait) return "wait";
@@ -516,4 +569,24 @@ public class NodeGraphManager : MonoBehaviour
         return "unknown";
     }
 
+    /// <summary>
+    /// DFS로 모든 분기를 포함하여 노드를 수집한다.
+    /// Choice 노드는 branchNodes를 따라가고, 일반 노드는 NextNode를 따라간다.
+    /// </summary>
+    private void CollectDFS(BaseNode node, List<BaseNode> ordered, HashSet<BaseNode> visited)
+    {
+        if (node == null || visited.Contains(node)) return;
+        visited.Add(node);
+        ordered.Add(node);
+
+        if (node is Choice choice)
+        {
+            foreach (var branch in choice.branchNodes)
+                CollectDFS(branch, ordered, visited);
+        }
+        else
+        {
+            CollectDFS(node.NextNode, ordered, visited);
+        }
+    }
 }
