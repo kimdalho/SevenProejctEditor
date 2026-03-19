@@ -3,118 +3,71 @@ using System.Collections;
 using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
-using UnityEngine.EventSystems;
-using UnityEngine.UI;
 
 public class Fade : BaseNode
 {
     public EaseType easeType = EaseType.Linear;
 
-    // 에디터 UI (코드로 자동 생성)
+    // 에디터 UI
     private TextMeshProUGUI dirLabel;
     private TextMeshProUGUI easeLabel;
-    private TextMeshProUGUI durationLabel;
-    private bool uiBuilt;
+    private TMP_InputField durationInput;
 
     public override void SetCommnadData(TsvCommand cmd)
     {
         base.SetCommnadData(cmd);
 
-        // TSV에서 duration 읽기 (없으면 wait 사용)
+        // Fade 전용 파싱
         if (cmd.Has("duration"))
             wait = cmd.GetFloat("duration", 1f);
 
-        // 이징 타입 읽기
         if (cmd.Has("easeType"))
             Enum.TryParse(cmd.Get("easeType"), true, out easeType);
 
-        // UI 빌드 (최초 1회)
-        if (!uiBuilt)
-            BuildFadeUI();
-
-        RefreshLabels();
+        RefreshNodeUI();
     }
 
     // ── 에디터 UI 생성 ─────────────────────────────────
 
-    private void BuildFadeUI()
+    protected override void BuildNodeUI()
     {
-        var canvas = GetComponentInChildren<Canvas>();
-        if (canvas == null) return;
-
-        // 기존 콘텐츠 아래에 파라미터 패널 생성
-        var containerObj = new GameObject("FadeParams");
-        containerObj.transform.SetParent(canvas.transform, false);
-
-        var containerRT = containerObj.AddComponent<RectTransform>();
-        containerRT.localScale = new Vector3(0.1f, 0.1f, 0.1f);
-        containerRT.anchoredPosition = new Vector2(0f, -0.055f);
-        containerRT.sizeDelta = new Vector2(0.9f, 1.0f);
-
-        var layout = containerObj.AddComponent<VerticalLayoutGroup>();
-        layout.childForceExpandHeight = false;
-        layout.childForceExpandWidth = true;
-        layout.childControlHeight = false;
-        layout.childControlWidth = true;
-        layout.spacing = -0.02f;
-        layout.childAlignment = TextAnchor.UpperCenter;
+        var container = GetOrCreateContentContainer();
+        if (container == null) return;
 
         // 방향 (클릭→FadeOut/FadeIn 토글)
-        dirLabel = CreateParamLabel(containerObj.transform, "lbl_dir",
+        dirLabel = CreateEnumSelector(container, "lbl_dir",
             new Color(1f, 0.6f, 0.6f), 0.25f,
-            () => { ToggleDirection(); RefreshLabels(); SyncToTsvCommand(); });
+            () => { ToggleDirection(); RefreshNodeUI(); SyncToTsvCommand(); });
 
-        // 이징 타입 (클릭→6가지 순환)
-        easeLabel = CreateParamLabel(containerObj.transform, "lbl_ease",
+        // 이징 타입 (클릭→순환)
+        easeLabel = CreateEnumSelector(container, "lbl_ease",
             new Color(1f, 0.85f, 0.3f), 0.22f,
-            () => { CycleEaseType(); RefreshLabels(); SyncToTsvCommand(); });
+            () => { CycleEaseType(); RefreshNodeUI(); SyncToTsvCommand(); });
 
-        // 시간 (클릭→프리셋 순환)
-        durationLabel = CreateParamLabel(containerObj.transform, "lbl_dur",
-            new Color(0.85f, 0.85f, 0.85f), 0.22f,
-            () => { CycleDuration(); RefreshLabels(); SyncToTsvCommand(); });
-
-        uiBuilt = true;
-    }
-
-    private TextMeshProUGUI CreateParamLabel(Transform parent, string objName,
-        Color color, float fontSize, Action onClick)
-    {
-        var obj = new GameObject(objName);
-        obj.transform.SetParent(parent, false);
-
-        var rt = obj.AddComponent<RectTransform>();
-        rt.sizeDelta = new Vector2(0f, fontSize + 0.04f);
-
-        var tmp = obj.AddComponent<TextMeshProUGUI>();
-        tmp.fontSize = fontSize;
-        tmp.alignment = TextAlignmentOptions.Center;
-        tmp.color = color;
-        tmp.raycastTarget = (onClick != null);
-        tmp.enableWordWrapping = false;
-        tmp.overflowMode = TextOverflowModes.Overflow;
-
-        if (onClick != null)
-        {
-            var trigger = obj.AddComponent<EventTrigger>();
-            var entry = new EventTrigger.Entry { eventID = EventTriggerType.PointerClick };
-            entry.callback.AddListener((_) => onClick());
-            trigger.triggers.Add(entry);
-        }
-
-        return tmp;
+        // 시간 (직접 입력)
+        durationInput = CreateTMPInputField(container, "input_dur",
+            wait.ToString("F1"), "시간(초)", 0.3f, 0.22f,
+            TMP_InputField.ContentType.DecimalNumber, false,
+            (val) =>
+            {
+                if (float.TryParse(val, out float f))
+                    wait = f;
+                SyncToTsvCommand();
+            });
     }
 
     // ── UI 업데이트 ─────────────────────────────────────
 
-    private void RefreshLabels()
+    protected override void RefreshNodeUI()
     {
-        if (!uiBuilt) return;
+        if (dirLabel == null) return;
 
         int dir = GetDirection();
         dirLabel.text = dir == 2 ? "FadeIn" : "FadeOut";
         easeLabel.text = $"Ease: {easeType}";
-        durationLabel.text = $"Dur: {wait:F1}s";
+
+        if (durationInput != null)
+            durationInput.SetTextWithoutNotify(wait.ToString("F1"));
     }
 
     // ── 값 조작 ─────────────────────────────────────────
@@ -139,19 +92,6 @@ public class Fade : BaseNode
         easeType = values[(idx + 1) % values.Length];
     }
 
-    private void CycleDuration()
-    {
-        float[] presets = { 0.3f, 0.5f, 0.8f, 1f, 1.5f, 2f, 3f };
-        int closest = 0;
-        float minDist = float.MaxValue;
-        for (int i = 0; i < presets.Length; i++)
-        {
-            float dist = Mathf.Abs(presets[i] - wait);
-            if (dist < minDist) { minDist = dist; closest = i; }
-        }
-        wait = presets[(closest + 1) % presets.Length];
-    }
-
     // ── TSV 동기화 ──────────────────────────────────────
 
     private void SyncToTsvCommand()
@@ -171,7 +111,6 @@ public class Fade : BaseNode
     {
         var fadeUI = player.fadeUI;
 
-        // StateInt로 방향 결정: 1=FadeOut(어두워짐), 2=FadeIn(밝아짐)
         int dir = tsvCommand != null && tsvCommand.StateInt.HasValue
             ? tsvCommand.StateInt.Value
             : 1;

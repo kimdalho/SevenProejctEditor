@@ -3,8 +3,6 @@ using System.Collections;
 using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
-using UnityEngine.EventSystems;
-using UnityEngine.UI;
 
 public enum eLocation
 {
@@ -58,27 +56,24 @@ public class ShowCharacter : BaseNode
     public eLocation endLocation;
     public EaseType easeType = EaseType.OutCubic;
 
-    // 에디터 UI (코드로 자동 생성)
-    private TextMeshProUGUI charNameLabel;
+    // 에디터 UI
+    private TMP_InputField characterInput;
     private TextMeshProUGUI expressionLabel;
     private TextMeshProUGUI endLocLabel;
     private TextMeshProUGUI easeLabel;
-    private TextMeshProUGUI durationLabel;
-    private bool uiBuilt;
+    private TMP_InputField durationInput;
 
     public override void SetCommnadData(TsvCommand cmd)
     {
         base.SetCommnadData(cmd);
 
-        // 표정
+        // ShowCharacter 전용 파싱
         if (cmd.Has("expression"))
             Enum.TryParse(cmd.Get("expression"), true, out expression);
 
-        // 위치
         if (cmd.Has("endLocation"))
             Enum.TryParse(cmd.Get("endLocation"), true, out endLocation);
 
-        // 이징
         if (cmd.Has("easeType"))
             Enum.TryParse(cmd.Get("easeType"), true, out easeType);
 
@@ -87,114 +82,81 @@ public class ShowCharacter : BaseNode
         if (string.IsNullOrEmpty(charName))
             charName = cmd.Get("character");
 
-        // character 필드 동기화
         if (!string.IsNullOrEmpty(charName) && string.IsNullOrEmpty(character))
             character = charName;
 
         if (CharacterManager.instance != null && !string.IsNullOrEmpty(charName))
             characterData = CharacterManager.instance.GetCharacter(charName);
 
-        // UI 빌드 (최초 1회)
-        if (!uiBuilt)
-            BuildShowCharacterUI();
-
-        RefreshLabels();
+        RefreshNodeUI();
     }
 
     // ── 에디터 UI 생성 ─────────────────────────────────
 
-    private void BuildShowCharacterUI()
+    protected override void BuildNodeUI()
     {
-        var canvas = GetComponentInChildren<Canvas>();
-        if (canvas == null) return;
+        var container = GetOrCreateContentContainer();
+        if (container == null) return;
 
-        // 기존 Image(VerticalLayoutGroup) 아래에 새 파라미터 패널 생성
-        var containerObj = new GameObject("ShowCharParams");
-        containerObj.transform.SetParent(canvas.transform, false);
+        // 캐릭터 이름 (직접 편집 가능)
+        characterInput = CreateTMPInputField(container, "input_char",
+            character ?? "", "캐릭터", 0.3f, 0.22f,
+            TMP_InputField.ContentType.Standard, false,
+            (val) =>
+            {
+                character = val;
+                if (CharacterManager.instance != null && !string.IsNullOrEmpty(val))
+                    characterData = CharacterManager.instance.GetCharacter(val);
+                SyncToTsvCommand();
+            });
 
-        var containerRT = containerObj.AddComponent<RectTransform>();
-        containerRT.localScale = new Vector3(0.1f, 0.1f, 0.1f);
-        containerRT.anchoredPosition = new Vector2(0f, -0.055f);
-        containerRT.sizeDelta = new Vector2(0.9f, 1.5f);
-
-        var layout = containerObj.AddComponent<VerticalLayoutGroup>();
-        layout.childForceExpandHeight = false;
-        layout.childForceExpandWidth = true;
-        layout.childControlHeight = false;
-        layout.childControlWidth = true;
-        layout.spacing = -0.02f;
-        layout.childAlignment = TextAnchor.UpperCenter;
-
-        // 캐릭터 이름 (녹색, 표시 전용)
-        charNameLabel = CreateParamLabel(containerObj.transform, "lbl_char",
-            new Color(0.4f, 1f, 0.4f), 0.25f, null);
-
-        // 표정 (노랑, 클릭→순환)
-        expressionLabel = CreateParamLabel(containerObj.transform, "lbl_exp",
+        // 표정 (클릭→순환)
+        expressionLabel = CreateEnumSelector(container, "lbl_exp",
             new Color(1f, 0.85f, 0.3f), 0.22f,
-            () => { CycleEnum(ref expression); RefreshLabels(); SyncToTsvCommand(); });
+            () => { CycleEnum(ref expression); RefreshNodeUI(); SyncToTsvCommand(); });
 
-        // 도착 위치 (파랑, 클릭→ Left/Mid/Right 순환)
-        endLocLabel = CreateParamLabel(containerObj.transform, "lbl_to",
+        // 도착 위치 (클릭→순환)
+        endLocLabel = CreateEnumSelector(container, "lbl_to",
             new Color(0.5f, 0.8f, 1f), 0.22f,
-            () => { CycleEnum(ref endLocation); RefreshLabels(); SyncToTsvCommand(); });
+            () => { CycleEnum(ref endLocation); RefreshNodeUI(); SyncToTsvCommand(); });
 
-        // 이징 (주황, 클릭→6종 순환)
-        easeLabel = CreateParamLabel(containerObj.transform, "lbl_ease",
+        // 이징 (클릭→순환)
+        easeLabel = CreateEnumSelector(container, "lbl_ease",
             new Color(1f, 0.6f, 0.6f), 0.22f,
-            () => { CycleEaseType(); RefreshLabels(); SyncToTsvCommand(); });
+            () => { CycleEaseType(); RefreshNodeUI(); SyncToTsvCommand(); });
 
-        // 시간 (회색, 클릭→프리셋 순환)
-        durationLabel = CreateParamLabel(containerObj.transform, "lbl_dur",
-            new Color(0.85f, 0.85f, 0.85f), 0.22f,
-            () => { CycleDuration(); RefreshLabels(); SyncToTsvCommand(); });
-
-        uiBuilt = true;
-    }
-
-    private TextMeshProUGUI CreateParamLabel(Transform parent, string objName,
-        Color color, float fontSize, Action onClick)
-    {
-        var obj = new GameObject(objName);
-        obj.transform.SetParent(parent, false);
-
-        var rt = obj.AddComponent<RectTransform>();
-        rt.sizeDelta = new Vector2(0f, fontSize + 0.04f);
-
-        var tmp = obj.AddComponent<TextMeshProUGUI>();
-        tmp.fontSize = fontSize;
-        tmp.alignment = TextAlignmentOptions.Center;
-        tmp.color = color;
-        tmp.raycastTarget = (onClick != null);
-        tmp.enableWordWrapping = false;
-        tmp.overflowMode = TextOverflowModes.Overflow;
-
-        if (onClick != null)
-        {
-            var trigger = obj.AddComponent<EventTrigger>();
-            var entry = new EventTrigger.Entry { eventID = EventTriggerType.PointerClick };
-            entry.callback.AddListener((_) => onClick());
-            trigger.triggers.Add(entry);
-        }
-
-        return tmp;
+        // 시간 (직접 입력)
+        durationInput = CreateTMPInputField(container, "input_dur",
+            wait.ToString("F1"), "시간(초)", 0.3f, 0.22f,
+            TMP_InputField.ContentType.DecimalNumber, false,
+            (val) =>
+            {
+                if (float.TryParse(val, out float f))
+                    wait = f;
+                SyncToTsvCommand();
+            });
     }
 
     // ── UI 업데이트 ─────────────────────────────────────
 
-    private void RefreshLabels()
+    protected override void RefreshNodeUI()
     {
-        if (!uiBuilt) return;
+        if (expressionLabel == null) return;
 
-        string charName = character;
-        if (string.IsNullOrEmpty(charName))
-            charName = tsvCommand?.name ?? "???";
+        if (characterInput != null)
+        {
+            string charName = character;
+            if (string.IsNullOrEmpty(charName))
+                charName = tsvCommand?.name ?? "";
+            characterInput.SetTextWithoutNotify(charName);
+        }
 
-        charNameLabel.text = charName;
         expressionLabel.text = $"Exp: {expression}";
         endLocLabel.text = $"Pos: {endLocation}";
         easeLabel.text = $"Ease: {easeType}";
-        durationLabel.text = $"Dur: {wait:F1}s";
+
+        if (durationInput != null)
+            durationInput.SetTextWithoutNotify(wait.ToString("F1"));
     }
 
     // ── 값 순환 ─────────────────────────────────────────
@@ -211,19 +173,6 @@ public class ShowCharacter : BaseNode
         var values = (EaseType[])Enum.GetValues(typeof(EaseType));
         int idx = Array.IndexOf(values, easeType);
         easeType = values[(idx + 1) % values.Length];
-    }
-
-    private void CycleDuration()
-    {
-        float[] presets = { 0.3f, 0.5f, 0.8f, 1f, 1.5f, 2f, 3f };
-        int closest = 0;
-        float minDist = float.MaxValue;
-        for (int i = 0; i < presets.Length; i++)
-        {
-            float dist = Mathf.Abs(presets[i] - wait);
-            if (dist < minDist) { minDist = dist; closest = i; }
-        }
-        wait = presets[(closest + 1) % presets.Length];
     }
 
     // ── TSV 동기화 ──────────────────────────────────────

@@ -4,40 +4,7 @@ using UnityEngine.UI;
 
 public class FadeUI : MonoBehaviour
 {
-    public Image fadeImage;
-
-    public static FadeUI Create(Transform parent)
-    {
-        // 패널 (전체 화면)
-        var panelObj = new GameObject("FadePanel");
-        panelObj.transform.SetParent(parent, false);
-
-        var panelRect = panelObj.AddComponent<RectTransform>();
-        panelRect.anchorMin = Vector2.zero;
-        panelRect.anchorMax = Vector2.one;
-        panelRect.offsetMin = Vector2.zero;
-        panelRect.offsetMax = Vector2.zero;
-
-        var ui = panelObj.AddComponent<FadeUI>();
-
-        // 전체 화면 검정 이미지
-        var imgObj = new GameObject("FadeImage");
-        imgObj.transform.SetParent(panelObj.transform, false);
-        var imgRect = imgObj.AddComponent<RectTransform>();
-        imgRect.anchorMin = Vector2.zero;
-        imgRect.anchorMax = Vector2.one;
-        imgRect.offsetMin = Vector2.zero;
-        imgRect.offsetMax = Vector2.zero;
-
-        ui.fadeImage = imgObj.AddComponent<Image>();
-        ui.fadeImage.color = new Color(0f, 0f, 0f, 0f);
-        ui.fadeImage.raycastTarget = false;
-
-        // 최상위로 올리기
-        panelObj.transform.SetAsLastSibling();
-
-        return ui;
-    }
+    [SerializeField] public Image fadeImage;
 
     /// <summary>
     /// 페이드 아웃: 화면이 어두워짐 (alpha 0 → 1)

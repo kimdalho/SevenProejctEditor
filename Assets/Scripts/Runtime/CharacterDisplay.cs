@@ -6,7 +6,7 @@ using UnityEngine.UI;
 public class CharacterDisplay : MonoBehaviour
 {
     private readonly Dictionary<string, Image> activeCharacters = new();
-    private RectTransform layerRect;
+    [SerializeField] private RectTransform layerRect;
 
     // 화면 내 3포지션 (X 비율 0~1)
     private static readonly Dictionary<eLocation, float> positionMap = new()
@@ -20,21 +20,11 @@ public class CharacterDisplay : MonoBehaviour
     private const float OUT_LEFT = -0.3f;
     private const float OUT_RIGHT = 1.3f;
 
-    public static CharacterDisplay Create(Transform parent)
+    private void Awake()
     {
-        var layerObj = new GameObject("CharacterLayer");
-        layerObj.transform.SetParent(parent, false);
-
-        var rect = layerObj.AddComponent<RectTransform>();
-        rect.anchorMin = Vector2.zero;
-        rect.anchorMax = Vector2.one;
-        rect.offsetMin = Vector2.zero;
-        rect.offsetMax = Vector2.zero;
-
-        var display = layerObj.AddComponent<CharacterDisplay>();
-        display.layerRect = rect;
-
-        return display;
+        // layerRect가 Inspector에서 연결되지 않았으면 자기 자신의 RectTransform 사용
+        if (layerRect == null)
+            layerRect = GetComponent<RectTransform>();
     }
 
     /// <summary>

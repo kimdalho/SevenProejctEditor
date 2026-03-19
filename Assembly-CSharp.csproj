@@ -83,6 +83,7 @@
     <Compile Include="Assets\Scripts\NodeGraph\Wait.cs" />
     <Compile Include="Assets\Scenes\IsoTileTest.cs" />
     <Compile Include="Assets\Scripts\Runtime\CutSceneData.cs" />
+    <Compile Include="Assets\Scripts\Runtime\Easing.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="Assets\TextMesh Pro\Shaders\TMPro.cginc" />

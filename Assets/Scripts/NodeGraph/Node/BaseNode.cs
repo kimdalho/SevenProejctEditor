@@ -1,7 +1,10 @@
 using System;
 using System.Collections;
+using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
+using UnityEngine.EventSystems;
+using UnityEngine.UI;
 
 /// <summary>
 /// ���⼭ ������ �ϳ� �߸���
@@ -52,7 +55,8 @@ public class BaseNode : MonoBehaviour , INodeDataGetService
 
     public TsvCommand tsvCommand;
 
-
+    protected RectTransform contentContainer;
+    protected bool nodeUIBuilt = false;
 
     public void Awake()
     {
@@ -112,6 +116,10 @@ public class BaseNode : MonoBehaviour , INodeDataGetService
 
     public void OnMouseDown()
     {
+        // InputField 클릭 시 드래그 방지
+        if (IsPointerOverInputField())
+            return;
+
         NodeGraphManager.instance.selectNode = this;
         dragging = true;
         BeginDrag();
@@ -229,6 +237,9 @@ public class BaseNode : MonoBehaviour , INodeDataGetService
         statTmp.text = cmd.StateStr;
 
         gameObject.name = $"node {cmd.Id}";
+
+        if (!nodeUIBuilt) { BuildNodeUI(); nodeUIBuilt = true; }
+        RefreshNodeUI();
     }
 
     public void SetLinkNext(BaseNode baseNode)
@@ -280,5 +291,189 @@ public class BaseNode : MonoBehaviour , INodeDataGetService
     public void SetData()
     {
 
+    }
+
+    // ── virtual UI 빌드/갱신 ─────────────────────────────
+
+    protected virtual void BuildNodeUI() { }
+    protected virtual void RefreshNodeUI() { }
+
+    // ── 드래그 가드 ──────────────────────────────────────
+
+    protected bool IsPointerOverInputField()
+    {
+        if (EventSystem.current == null) return false;
+        var pointer = new PointerEventData(EventSystem.current) { position = Input.mousePosition };
+        var results = new List<RaycastResult>();
+        EventSystem.current.RaycastAll(pointer, results);
+        foreach (var r in results)
+        {
+            if (r.gameObject.GetComponent<TMP_InputField>() != null ||
+                r.gameObject.GetComponentInParent<TMP_InputField>() != null)
+                return true;
+        }
+        return false;
+    }
+
+    // ── UI 헬퍼: 콘텐츠 컨테이너 ────────────────────────
+
+    protected RectTransform GetOrCreateContentContainer()
+    {
+        if (contentContainer != null) return contentContainer;
+
+        var canvas = GetComponentInChildren<Canvas>();
+        if (canvas == null) return null;
+
+        var existing = canvas.transform.Find("NodeContent");
+        if (existing != null)
+        {
+            contentContainer = existing.GetComponent<RectTransform>();
+            return contentContainer;
+        }
+
+        var obj = new GameObject("NodeContent");
+        obj.transform.SetParent(canvas.transform, false);
+
+        contentContainer = obj.AddComponent<RectTransform>();
+        contentContainer.localScale = new Vector3(0.1f, 0.1f, 0.1f);
+        contentContainer.anchoredPosition = new Vector2(0f, -0.055f);
+        contentContainer.sizeDelta = new Vector2(0.9f, 2f);
+
+        var layout = obj.AddComponent<VerticalLayoutGroup>();
+        layout.childForceExpandHeight = false;
+        layout.childForceExpandWidth = true;
+        layout.childControlHeight = false;
+        layout.childControlWidth = true;
+        layout.spacing = -0.02f;
+        layout.childAlignment = TextAnchor.UpperCenter;
+
+        return contentContainer;
+    }
+
+    // ── UI 헬퍼: TMP_InputField 생성 ─────────────────────
+
+    protected TMP_InputField CreateTMPInputField(Transform parent, string name,
+        string text, string placeholder, float height, float fontSize,
+        TMP_InputField.ContentType contentType, bool multiline,
+        Action<string> onChanged)
+    {
+        // Root
+        var root = new GameObject(name);
+        root.transform.SetParent(parent, false);
+        var rootRT = root.AddComponent<RectTransform>();
+        rootRT.sizeDelta = new Vector2(0f, height);
+
+        var bg = root.AddComponent<Image>();
+        bg.color = new Color(0.15f, 0.15f, 0.15f, 0.8f);
+
+        // Text Area
+        var textAreaObj = new GameObject("Text Area");
+        textAreaObj.transform.SetParent(root.transform, false);
+        var textAreaRT = textAreaObj.AddComponent<RectTransform>();
+        textAreaRT.anchorMin = Vector2.zero;
+        textAreaRT.anchorMax = Vector2.one;
+        textAreaRT.offsetMin = new Vector2(0.02f, 0.01f);
+        textAreaRT.offsetMax = new Vector2(-0.02f, -0.01f);
+        textAreaObj.AddComponent<RectMask2D>();
+
+        // Text
+        var textObj = new GameObject("Text");
+        textObj.transform.SetParent(textAreaObj.transform, false);
+        var textRT = textObj.AddComponent<RectTransform>();
+        textRT.anchorMin = Vector2.zero;
+        textRT.anchorMax = Vector2.one;
+        textRT.offsetMin = Vector2.zero;
+        textRT.offsetMax = Vector2.zero;
+        var tmp = textObj.AddComponent<TextMeshProUGUI>();
+        tmp.fontSize = fontSize;
+        tmp.color = Color.white;
+        tmp.enableWordWrapping = multiline;
+        tmp.overflowMode = TextOverflowModes.Overflow;
+        tmp.richText = false;
+
+        // Placeholder
+        var phObj = new GameObject("Placeholder");
+        phObj.transform.SetParent(textAreaObj.transform, false);
+        var phRT = phObj.AddComponent<RectTransform>();
+        phRT.anchorMin = Vector2.zero;
+        phRT.anchorMax = Vector2.one;
+        phRT.offsetMin = Vector2.zero;
+        phRT.offsetMax = Vector2.zero;
+        var phTmp = phObj.AddComponent<TextMeshProUGUI>();
+        phTmp.fontSize = fontSize;
+        phTmp.color = new Color(1f, 1f, 1f, 0.3f);
+        phTmp.text = placeholder ?? "";
+        phTmp.enableWordWrapping = multiline;
+        phTmp.fontStyle = FontStyles.Italic;
+
+        // InputField
+        var input = root.AddComponent<TMP_InputField>();
+        input.textViewport = textAreaRT;
+        input.textComponent = tmp;
+        input.placeholder = phTmp;
+        input.text = text ?? "";
+        input.pointSize = fontSize;
+        input.contentType = contentType;
+        input.caretWidth = 2;
+
+        if (multiline)
+            input.lineType = TMP_InputField.LineType.MultiLineNewline;
+
+        if (onChanged != null)
+            input.onValueChanged.AddListener((val) => onChanged(val));
+
+        return input;
+    }
+
+    // ── UI 헬퍼: Enum 셀렉터 (클릭 순환 라벨) ───────────
+
+    protected TextMeshProUGUI CreateEnumSelector(Transform parent, string name,
+        Color color, float fontSize, Action onClick)
+    {
+        var obj = new GameObject(name);
+        obj.transform.SetParent(parent, false);
+
+        var rt = obj.AddComponent<RectTransform>();
+        rt.sizeDelta = new Vector2(0f, fontSize + 0.04f);
+
+        var tmp = obj.AddComponent<TextMeshProUGUI>();
+        tmp.fontSize = fontSize;
+        tmp.alignment = TextAlignmentOptions.Center;
+        tmp.color = color;
+        tmp.raycastTarget = true;
+        tmp.enableWordWrapping = false;
+        tmp.overflowMode = TextOverflowModes.Overflow;
+
+        if (onClick != null)
+        {
+            var trigger = obj.AddComponent<EventTrigger>();
+            var entry = new EventTrigger.Entry { eventID = EventTriggerType.PointerClick };
+            entry.callback.AddListener((_) => onClick());
+            trigger.triggers.Add(entry);
+        }
+
+        return tmp;
+    }
+
+    // ── UI 헬퍼: 읽기 전용 라벨 ─────────────────────────
+
+    protected TextMeshProUGUI CreateLabel(Transform parent, string name,
+        Color color, float fontSize)
+    {
+        var obj = new GameObject(name);
+        obj.transform.SetParent(parent, false);
+
+        var rt = obj.AddComponent<RectTransform>();
+        rt.sizeDelta = new Vector2(0f, fontSize + 0.04f);
+
+        var tmp = obj.AddComponent<TextMeshProUGUI>();
+        tmp.fontSize = fontSize;
+        tmp.alignment = TextAlignmentOptions.Center;
+        tmp.color = color;
+        tmp.raycastTarget = false;
+        tmp.enableWordWrapping = false;
+        tmp.overflowMode = TextOverflowModes.Overflow;
+
+        return tmp;
     }
 }

@@ -6,6 +6,9 @@ public class NodePlayer : MonoBehaviour
 {
     public static NodePlayer instance;
 
+    [Header("Prefab")]
+    [SerializeField] private GameObject cutsceneCanvasPrefab;
+
     [Header("UI References")]
     public DialogueUI dialogueUI;
     public FadeUI fadeUI;
@@ -33,22 +36,17 @@ public class NodePlayer : MonoBehaviour
 
     private void BuildUI()
     {
-        // Canvas
-        var canvasObj = new GameObject("RuntimeCanvas");
-        canvasObj.transform.SetParent(transform);
-        runtimeCanvas = canvasObj.AddComponent<Canvas>();
-        runtimeCanvas.renderMode = RenderMode.ScreenSpaceOverlay;
-        runtimeCanvas.sortingOrder = 100;
-        canvasObj.AddComponent<UnityEngine.UI.CanvasScaler>().uiScaleMode =
-            UnityEngine.UI.CanvasScaler.ScaleMode.ScaleWithScreenSize;
-        canvasObj.GetComponent<UnityEngine.UI.CanvasScaler>().referenceResolution =
-            new Vector2(1920, 1080);
-        canvasObj.AddComponent<UnityEngine.UI.GraphicRaycaster>();
+        if (cutsceneCanvasPrefab == null)
+        {
+            Debug.LogWarning("[NodePlayer] cutsceneCanvasPrefab이 할당되지 않았습니다. Inspector에서 프리팹을 연결하세요.");
+            return;
+        }
 
-        // 생성 순서 = 렌더링 순서 (아래가 위에 그려짐)
-        characterDisplay = CharacterDisplay.Create(runtimeCanvas.transform); // 맨 뒤
-        dialogueUI = DialogueUI.Create(runtimeCanvas.transform);            // 중간
-        fadeUI = FadeUI.Create(runtimeCanvas.transform);                    // 맨 앞
+        var canvasInstance = Instantiate(cutsceneCanvasPrefab, transform);
+        runtimeCanvas = canvasInstance.GetComponent<Canvas>();
+        dialogueUI = canvasInstance.GetComponentInChildren<DialogueUI>(true);
+        fadeUI = canvasInstance.GetComponentInChildren<FadeUI>(true);
+        characterDisplay = canvasInstance.GetComponentInChildren<CharacterDisplay>(true);
 
         // 초기 상태
         dialogueUI.Hide();

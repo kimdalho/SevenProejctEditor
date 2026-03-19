@@ -2,7 +2,9 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Text;
+using TMPro;
 using UnityEngine;
+using UnityEngine.EventSystems;
 using UnityEngine.SceneManagement;
 
 public enum eNodeType
@@ -135,35 +137,42 @@ public class NodeGraphManager : MonoBehaviour
         if (NodePlayer.instance != null && NodePlayer.instance.isPlaying)
             return;
 
-        //����
-        if(Input.GetKeyDown(KeyCode.X))
-        {
-            selectNode.Remove();
-        }
+        // InputField에 타이핑 중이면 에디터 단축키 무시
+        var selected = EventSystem.current?.currentSelectedGameObject;
+        bool isTyping = selected != null && selected.GetComponentInParent<TMP_InputField>() != null;
 
-        if(Input.GetKey(KeyCode.S))
+        if (!isTyping)
         {
-            var camPos = mainCam.transform.position;
-            camPos.z -= 0.1f;
-            mainCam.transform.position = camPos;
-        }
-        if (Input.GetKey(KeyCode.W))
-        {
-            var camPos = mainCam.transform.position;
-            camPos.z += 0.1f;
-            mainCam.transform.position = camPos;
-        }
-        if (Input.GetKey(KeyCode.A))
-        {
-            var camPos = mainCam.transform.position;
-            camPos.x -= 0.1f;
-            mainCam.transform.position = camPos;
-        }
-        if (Input.GetKey(KeyCode.D))
-        {
-            var camPos = mainCam.transform.position;
-            camPos.x += 0.1f;
-            mainCam.transform.position = camPos;
+            // 삭제
+            if(Input.GetKeyDown(KeyCode.X))
+            {
+                selectNode.Remove();
+            }
+
+            if(Input.GetKey(KeyCode.S))
+            {
+                var camPos = mainCam.transform.position;
+                camPos.z -= 0.1f;
+                mainCam.transform.position = camPos;
+            }
+            if (Input.GetKey(KeyCode.W))
+            {
+                var camPos = mainCam.transform.position;
+                camPos.z += 0.1f;
+                mainCam.transform.position = camPos;
+            }
+            if (Input.GetKey(KeyCode.A))
+            {
+                var camPos = mainCam.transform.position;
+                camPos.x -= 0.1f;
+                mainCam.transform.position = camPos;
+            }
+            if (Input.GetKey(KeyCode.D))
+            {
+                var camPos = mainCam.transform.position;
+                camPos.x += 0.1f;
+                mainCam.transform.position = camPos;
+            }
         }
 
         // 마우스 휠 확대/축소

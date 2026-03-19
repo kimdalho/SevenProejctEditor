@@ -13,6 +13,9 @@ using UnityEngine.UI;
 /// </summary>
 public class CutScenePlayer : MonoBehaviour
 {
+    [Header("Prefab")]
+    [SerializeField] private GameObject cutsceneCanvasPrefab;
+
     [Header("State")]
     public bool isPlaying;
     public int currentIndex;
@@ -88,70 +91,34 @@ public class CutScenePlayer : MonoBehaviour
 
     private void BuildUI()
     {
-        // Canvas
-        var canvasObj = new GameObject("CutSceneCanvas");
-        canvasObj.transform.SetParent(transform);
-        canvas = canvasObj.AddComponent<Canvas>();
-        canvas.renderMode = RenderMode.ScreenSpaceOverlay;
-        canvas.sortingOrder = 100;
+        if (cutsceneCanvasPrefab == null)
+        {
+            Debug.LogWarning("[CutScenePlayer] cutsceneCanvasPrefab이 할당되지 않았습니다. Inspector에서 프리팹을 연결하세요.");
+            return;
+        }
 
-        var scaler = canvasObj.AddComponent<CanvasScaler>();
-        scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
-        scaler.referenceResolution = new Vector2(1920, 1080);
-        canvasObj.AddComponent<GraphicRaycaster>();
+        var canvasInstance = Instantiate(cutsceneCanvasPrefab, transform);
+        canvas = canvasInstance.GetComponent<Canvas>();
+        dialogueUI = canvasInstance.GetComponentInChildren<DialogueUI>(true);
+        fadeUI = canvasInstance.GetComponentInChildren<FadeUI>(true);
+        characterDisplay = canvasInstance.GetComponentInChildren<CharacterDisplay>(true);
 
-        // CharacterDisplay (대사 뒤)
-        characterDisplay = CharacterDisplay.Create(canvas.transform);
-
-        // DialogueUI
-        dialogueUI = DialogueUI.Create(canvas.transform);
-
-        // FadeUI
-        fadeUI = FadeUI.Create(canvas.transform);
-
-        // ── 진행 표시 (좌측 상단) ──
-        progressTMP = CreateTMP(canvas.transform, "Progress_TMP",
-            new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(0f, 1f),
-            new Vector2(20f, -15f), new Vector2(300f, 40f),
-            24f, new Color(0.5f, 1f, 0.5f), TextAlignmentOptions.TopLeft);
-
-        // ── 커맨드 정보 ──
-        commandInfoTMP = CreateTMP(canvas.transform, "CommandInfo_TMP",
-            new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(0f, 1f),
-            new Vector2(20f, -50f), new Vector2(600f, 30f),
-            18f, new Color(0.7f, 0.7f, 0.7f), TextAlignmentOptions.TopLeft);
-
-        // ── ESC 힌트 (우측 상단) ──
-        hintTMP = CreateTMP(canvas.transform, "Hint_TMP",
-            new Vector2(1f, 1f), new Vector2(1f, 1f), new Vector2(1f, 1f),
-            new Vector2(-20f, -15f), new Vector2(250f, 30f),
-            18f, new Color(1f, 1f, 1f, 0.4f), TextAlignmentOptions.TopRight);
-        hintTMP.text = "ESC: 에디터로 복귀";
+        // DebugInfo TMP — 이름으로 검색
+        var allTMPs = canvasInstance.GetComponentsInChildren<TextMeshProUGUI>(true);
+        foreach (var tmp in allTMPs)
+        {
+            switch (tmp.gameObject.name)
+            {
+                case "Progress_TMP": progressTMP = tmp; break;
+                case "CommandInfo_TMP": commandInfoTMP = tmp; break;
+                case "Hint_TMP": hintTMP = tmp; break;
+            }
+        }
 
         // 초기 상태
         dialogueUI.Hide();
         fadeUI.SetClear();
         characterDisplay.HideAll();
-    }
-
-    private TextMeshProUGUI CreateTMP(Transform parent, string name,
-        Vector2 anchorMin, Vector2 anchorMax, Vector2 pivot,
-        Vector2 anchoredPos, Vector2 sizeDelta,
-        float fontSize, Color color, TextAlignmentOptions align)
-    {
-        var obj = new GameObject(name);
-        obj.transform.SetParent(parent, false);
-        var rt = obj.AddComponent<RectTransform>();
-        rt.anchorMin = anchorMin;
-        rt.anchorMax = anchorMax;
-        rt.pivot = pivot;
-        rt.anchoredPosition = anchoredPos;
-        rt.sizeDelta = sizeDelta;
-        var tmp = obj.AddComponent<TextMeshProUGUI>();
-        tmp.fontSize = fontSize;
-        tmp.color = color;
-        tmp.alignment = align;
-        return tmp;
     }
 
     // ── 재생 API ─────────────────────────────────────
