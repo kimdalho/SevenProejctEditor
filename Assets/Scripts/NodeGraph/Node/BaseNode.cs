@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections;
 using System.Collections.Generic;
 using TMPro;
@@ -47,9 +47,9 @@ public class BaseNode : MonoBehaviour , INodeDataGetService
     public TextMeshProUGUI statTmp;
 
     public event Action<BaseNode> Picked;
-    public event Action<BaseNode, Vector3> Dragging;
+    public Action<BaseNode, Vector3> Dragging;
     public event Action<BaseNode> Dropped;
-    private Vector3 _dragOffset;
+    protected Vector3 _dragOffset;
     public float offsetY = 0f;
     public float snap;
 
@@ -175,8 +175,7 @@ public class BaseNode : MonoBehaviour , INodeDataGetService
         if(nextEdge != null && NextNode != null)
             nextEdge.SetNameless(nextButton.transform.position, NextNode.prevButton.transform.position);
 
-        if (prevEdge != null && PrevNode != null)
-            PrevNode.nextEdge.SetNameless(PrevNode.nextButton.transform.position, PrevNode.NextNode.prevButton.transform.position);
+        UpdateAllIncomingEdges();
     }
 
     public void OnMouseUp()
@@ -202,8 +201,7 @@ public class BaseNode : MonoBehaviour , INodeDataGetService
         if (nextEdge != null && NextNode != null)
             nextEdge.SetNameless(nextButton.transform.position, NextNode.prevButton.transform.position);
 
-        if (prevEdge != null && PrevNode != null)
-            PrevNode.nextEdge.SetNameless(PrevNode.nextButton.transform.position, PrevNode.NextNode.prevButton.transform.position);
+        UpdateAllIncomingEdges();
     }
     protected Vector2Int WorldToRectGrid(Vector3 worldPos, float cellSize)
     {
@@ -222,6 +220,40 @@ public class BaseNode : MonoBehaviour , INodeDataGetService
         pos.y = offsetY;
         transform.position = pos;
         DataPos = pos;
+    }
+
+    public virtual Vector3 GetEdgeStartPosition(BaseNode target)
+    {
+        return nextButton.transform.position;
+    }
+
+    protected void UpdateAllIncomingEdges()
+    {
+        var nodes = NodeGraphManager.instance.nodes;
+        for (int n = 0; n < nodes.Count; n++)
+        {
+            var node = nodes[n];
+            if (node == this) continue;
+
+            if (node.nextEdge != null && node.NextNode == this)
+                node.nextEdge.SetNameless(node.nextButton.transform.position, prevButton.transform.position);
+
+            var choice = node as Choice;
+            if (choice != null)
+            {
+                for (int i = 0; i < choice.branchNodes.Count; i++)
+                {
+                    if (choice.branchNodes[i] == this
+                        && i < choice.branchEdges.Count && choice.branchEdges[i] != null
+                        && i < choice.branchButtons.Count && choice.branchButtons[i] != null)
+                    {
+                        choice.branchEdges[i].SetNameless(
+                            choice.branchButtons[i].transform.position,
+                            prevButton.transform.position);
+                    }
+                }
+            }
+        }
     }
 
 

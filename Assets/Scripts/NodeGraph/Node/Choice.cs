@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections;
 using System.Collections.Generic;
 using TMPro;
@@ -91,7 +91,7 @@ public class Choice : BaseNode
 
     // ── 드래그 중 엣지 업데이트 ────────────────────────
 
-    private new void FixedUpdate()
+    private void FixedUpdate()
     {
         if (!dragging) return;
 
@@ -101,7 +101,7 @@ public class Choice : BaseNode
         if (plane.Raycast(ray, out var enter))
         {
             var hit = ray.GetPoint(enter);
-            mousePos = hit + (transform.position - hit);
+            mousePos = hit + _dragOffset;
         }
         else
         {
@@ -123,8 +123,7 @@ public class Choice : BaseNode
             }
         }
 
-        if (prevEdge != null && PrevNode != null)
-            PrevNode.nextEdge.SetNameless(PrevNode.nextButton.transform.position, PrevNode.NextNode.prevButton.transform.position);
+        UpdateAllIncomingEdges();
     }
 
     // ── TSV 파싱 ────────────────────────────────────────
@@ -263,6 +262,14 @@ public class Choice : BaseNode
         }
     }
 
+    public override Vector3 GetEdgeStartPosition(BaseNode target)
+    {
+        int idx = branchNodes.IndexOf(target);
+        if (idx >= 0 && idx < branchButtons.Count && branchButtons[idx] != null)
+            return branchButtons[idx].transform.position;
+        return transform.position;
+    }
+
     // ── TSV 로드 후 분기 타겟 복원 ──────────────────────
 
     public void ResolveBranchTargets(List<BaseNode> allNodes)
@@ -289,6 +296,9 @@ public class Choice : BaseNode
                         branchButtons[idx].transform.position,
                         target.prevButton.transform.position);
                 }
+
+                target.PrevNode = this;
+                target.prevEdge = branchEdges[idx];
             }
         }
     }
@@ -335,7 +345,6 @@ public class Choice : BaseNode
             }
         }
 
-        if (prevEdge != null && PrevNode != null)
-            PrevNode.nextEdge.SetNameless(PrevNode.nextButton.transform.position, PrevNode.NextNode.prevButton.transform.position);
+        UpdateAllIncomingEdges();
     }
 }
