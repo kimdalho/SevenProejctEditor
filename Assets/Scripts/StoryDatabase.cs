@@ -5,31 +5,33 @@ public sealed class StoryDatabase : MonoBehaviour
 {
     public static StoryDatabase instance;
 
-    [Tooltip("Resources ∞Ê∑Œ(»Æ¿Â¿⁄ ¡¶ø‹). øπ: 'Story/episode1'")]
-    public string resourcesPath = "Story/episode1";
+    public TextAsset tsvAsset;
 
     public List<TsvCommand> Commands = new();
     public Dictionary<int, TsvCommand> ById { get; private set; } = new();
 
     void Awake()
     {
-        //1) ΩÃ±€≈Ê
         if (instance == null)
             instance = this;
         else
-            Destroy(this.gameObject);
-
-
-        //2) ∏Æº“Ω∫ »Æ¿Œ
-        var ta = Resources.Load<TextAsset>(resourcesPath);
-        if (ta == null)
         {
-            Debug.LogError($"[StoryDatabase] TSV not found at Resources/{resourcesPath}");
+            Destroy(gameObject);
             return;
         }
 
-        //3) tsv µ•¿Ã≈Õ ∆ƒΩÃ
-        Commands = TsvParser.Parse(ta);
+        if (tsvAsset == null)
+        {
+            Debug.LogWarning("[StoryDatabase] tsvAssetÏù¥ Ìï†ÎãπÎêòÏßÄ ÏïäÏïòÏäµÎãàÎã§.");
+            return;
+        }
+
+        LoadAsset(tsvAsset);
+    }
+
+    public void LoadAsset(TextAsset asset)
+    {
+        Commands = TsvParser.Parse(asset);
         ById.Clear();
         foreach (var cmd in Commands)
         {
@@ -38,12 +40,6 @@ public sealed class StoryDatabase : MonoBehaviour
             else
                 Debug.LogWarning($"[StoryDatabase] Duplicate Id: {cmd.Id}");
         }
-
-        foreach(var cmd in Commands)
-        {
-            Debug.Log($"{cmd.Get("character")} {cmd.Get("str_1")}");
-        }
-
     }
 
     public bool TryGet(int id, out TsvCommand cmd) => ById.TryGetValue(id, out cmd);

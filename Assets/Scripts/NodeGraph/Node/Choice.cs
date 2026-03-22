@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Collections;
 using System.Collections.Generic;
-using TMPro;
 using UnityEngine;
 
 public class Choice : BaseNode
@@ -14,10 +13,6 @@ public class Choice : BaseNode
     public List<int> targetIds = new();
 
     private int selectedIndex = -1;
-
-    // 에디터 UI
-    private TextMeshProUGUI countLabel;
-    private TMP_InputField[] optionInputs = new TMP_InputField[4];
 
     public new void Awake()
     {
@@ -91,22 +86,23 @@ public class Choice : BaseNode
 
     // ── 드래그 중 엣지 업데이트 ────────────────────────
 
-    private void FixedUpdate()
+    private new void Update()
     {
         if (!dragging) return;
 
+        if (Input.GetMouseButtonUp(0))
+        {
+            OnMouseUp();
+            return;
+        }
+
         var inputPos = (Input.touchCount > 0) ? (Vector3)Input.GetTouch(0).position : Input.mousePosition;
-        var ray = cam.ScreenPointToRay(inputPos);
+        var ray   = cam.ScreenPointToRay(inputPos);
         var plane = new Plane(Vector3.up, new Vector3(0f, transform.position.y, 0f));
         if (plane.Raycast(ray, out var enter))
-        {
-            var hit = ray.GetPoint(enter);
-            mousePos = hit + _dragOffset;
-        }
+            mousePos = ray.GetPoint(enter) + _dragOffset;
         else
-        {
             mousePos = transform.position;
-        }
 
         Dragging?.Invoke(this, transform.position);
         SetPosition(mousePos);
@@ -147,99 +143,6 @@ public class Choice : BaseNode
 
         // 최소 2개 선택지 보장
         while (options.Count < 2) options.Add("");
-
-        RefreshNodeUI();
-    }
-
-    // ── 에디터 UI 생성 ─────────────────────────────────
-
-    protected override void BuildNodeUI()
-    {
-        var container = GetOrCreateContentContainer();
-        if (container == null) return;
-
-        // 선택지 개수 라벨 (클릭 → 2/3/4 순환)
-        countLabel = CreateEnumSelector(container, "lbl_count",
-            new Color(0.5f, 0.8f, 1f), 0.22f,
-            () => { CycleOptionCount(); RefreshNodeUI(); SyncToTsvCommand(); });
-
-        // 선택지 4개 InputField
-        for (int i = 0; i < 4; i++)
-        {
-            int idx = i;
-            optionInputs[i] = CreateTMPInputField(container, $"input_opt{i}",
-                i < options.Count ? options[i] : "", $"선택지 {i + 1}",
-                0.3f, 0.2f, TMP_InputField.ContentType.Standard, false,
-                (val) => { SetOption(idx, val); SyncToTsvCommand(); });
-        }
-    }
-
-    protected override void RefreshNodeUI()
-    {
-        if (countLabel == null) return;
-
-        countLabel.text = $"Count: {options.Count}";
-
-        for (int i = 0; i < 4; i++)
-        {
-            if (optionInputs[i] == null) continue;
-
-            if (i < options.Count)
-            {
-                optionInputs[i].gameObject.SetActive(true);
-                optionInputs[i].SetTextWithoutNotify(options[i]);
-
-                // 대응하는 branchButton 활성화
-                if (i < branchButtons.Count && branchButtons[i] != null)
-                    branchButtons[i].gameObject.SetActive(true);
-            }
-            else
-            {
-                optionInputs[i].gameObject.SetActive(false);
-
-                // 대응하는 branchButton 비활성화
-                if (i < branchButtons.Count && branchButtons[i] != null)
-                    branchButtons[i].gameObject.SetActive(false);
-            }
-        }
-    }
-
-    private void CycleOptionCount()
-    {
-        int count = options.Count;
-        count++;
-        if (count > 4) count = 2;
-
-        while (options.Count < count) options.Add("");
-        while (options.Count > count) options.RemoveAt(options.Count - 1);
-    }
-
-    private void SetOption(int idx, string val)
-    {
-        while (options.Count <= idx) options.Add("");
-        options[idx] = val;
-    }
-
-    // ── TSV 동기화 ──────────────────────────────────────
-
-    private void SyncToTsvCommand()
-    {
-        if (tsvCommand == null) return;
-        if (tsvCommand.Fields == null)
-            tsvCommand.Fields = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-
-        tsvCommand.Fields["options"] = string.Join("|", options);
-
-        var ids = new List<string>();
-        for (int i = 0; i < options.Count; i++)
-        {
-            if (i < branchNodes.Count && branchNodes[i] != null)
-                ids.Add(branchNodes[i].id.ToString());
-            else
-                ids.Add("-1");
-        }
-        tsvCommand.Fields["targets"] = string.Join("|", ids);
-        tsvCommand.StateInt = options.Count;
     }
 
     // ── 런타임 실행 ─────────────────────────────────────

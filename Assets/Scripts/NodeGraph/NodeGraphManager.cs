@@ -6,13 +6,15 @@ using TMPro;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.SceneManagement;
+using UnityEngine.Serialization;
 
 public enum eNodeType
 {
-    None,
     Say,
     Fade,
-    CharacterShow
+    Wait,
+    ShowCharacter,
+    Choice
 }
 
 //��� Ÿ���� ���� ���������̺��� �����͸� �޴µ� Ÿ�Կ����� ���� �ʾƾ��Ѵ�.
@@ -28,12 +30,12 @@ public class NodeGraphManager : MonoBehaviour
     public Camera mainCam;
 
     [Header("Prefabs")]
-    public BaseNode NodePrefab;
-    public BaseNode NodePrefab1;
-    public BaseNode NodePrefab2;
-    public BaseNode NodePrefab3;
-    public BaseNode NodePrefab4;
-    public BaseNode NodePrefab5;   // Choice
+    [FormerlySerializedAs("NodePrefab1")] public BaseNode SayPrefab;
+    [FormerlySerializedAs("NodePrefab2")] public BaseNode FadePrefab;
+    [FormerlySerializedAs("NodePrefab3")] public BaseNode WaitPrefab;
+    [FormerlySerializedAs("NodePrefab4")] public BaseNode ShowCharacterPrefab;
+    [FormerlySerializedAs("NodePrefab5")] public BaseNode ChoicePrefab;
+    public GameObject EdgePrefab;
     public static NodeGraphManager instance;
     public List<BaseNode> nodes = new();
 
@@ -74,11 +76,7 @@ public class NodeGraphManager : MonoBehaviour
 
         // StoryDatabase에 복원
         if (StoryDatabase.instance != null)
-        {
             StoryDatabase.instance.Commands = CutSceneData.EditorCommands;
-            if (!string.IsNullOrEmpty(CutSceneData.EditorResourcesPath))
-                StoryDatabase.instance.resourcesPath = CutSceneData.EditorResourcesPath;
-        }
 
         // 노드 그래프 재생성
         CreateNodeToTsvCommand();
@@ -86,32 +84,10 @@ public class NodeGraphManager : MonoBehaviour
 
         // 복원 데이터 정리
         CutSceneData.EditorCommands = null;
-        CutSceneData.EditorResourcesPath = null;
     }
 
     private void Update()
     {
-        //if(Input.GetKeyDown(KeyCode.N))
-        //{
-        //    CreateNodeToType(eNodeType.None, NodePrefab);
-        //}
-        //if (Input.GetKeyDown(KeyCode.A))
-        //{
-        //    CreateNodeToType(eNodeType.Say, NodePrefab1);
-        //}
-        //if (Input.GetKeyDown(KeyCode.A))
-        //{
-        //    CreateNodeToType(eNodeType.Fade, NodePrefab2);
-        //}
-        //if (Input.GetKeyDown(KeyCode.A))
-        //{
-        //    CreateNodeToType(eNodeType.CharacterShow, NodePrefab3);
-        //}
-        //if (Input.GetKeyDown(KeyCode.A))
-        //{
-        //    CreateNodeToType(eNodeType.None, NodePrefab4);
-        //}
-
         // ---- CutScene (F7 → 별도 씬) ----
         if (Input.GetKeyDown(KeyCode.F7))
         {
@@ -201,14 +177,85 @@ public class NodeGraphManager : MonoBehaviour
 
     }
 
-    //----------------- ��� ���� ------------------------------------------
+    //----------------- 노드 생성 ------------------------------------------
 
-    public void CreateNodeToType(eNodeType type,BaseNode prefab)
+    private static TsvCommand CreateDefaultCommand(eNodeType type, int id)
     {
-        var obj = Instantiate(prefab);
-        var newbaseNode = obj.GetComponent<BaseNode>();
-        newbaseNode.transform.position = Vector3.zero;
-        nodes.Add(newbaseNode);
+        var fields = new System.Collections.Generic.Dictionary<string, string>(System.StringComparer.OrdinalIgnoreCase);
+
+        switch (type)
+        {
+            case eNodeType.Say:
+                fields["character"] = "";
+                fields["str_1"]     = "";
+                break;
+            case eNodeType.Fade:
+                fields["easeType"]  = "Linear";
+                fields["duration"]  = "1";
+                break;
+            case eNodeType.Wait:
+                fields["wait"]      = "1";
+                break;
+            case eNodeType.ShowCharacter:
+                fields["character"]   = "";
+                fields["expression"]  = "None";
+                fields["endLocation"] = "Mid";
+                fields["easeType"]    = "OutCubic";
+                fields["wait"]        = "0.5";
+                break;
+            case eNodeType.Choice:
+                fields["options"]   = "|";
+                break;
+        }
+
+        return new TsvCommand
+        {
+            Id       = id,
+            StateStr = type switch
+            {
+                eNodeType.ShowCharacter => "showcharacter",
+                _                       => type.ToString().ToLower()
+            },
+            Fields = fields
+        };
+    }
+
+    private static eNodeType StateStrToNodeType(string stateStr)
+    {
+        return stateStr switch
+        {
+            "say"           => eNodeType.Say,
+            "fade"          => eNodeType.Fade,
+            "wait"          => eNodeType.Wait,
+            "showcharacter" => eNodeType.ShowCharacter,
+            "choice"        => eNodeType.Choice,
+            _               => throw new ArgumentException($"[NodeGraph] 알 수 없는 StateStr: {stateStr}")
+        };
+    }
+
+    private BaseNode GetPrefabByType(eNodeType type)
+    {
+        return type switch
+        {
+            eNodeType.Say           => SayPrefab,
+            eNodeType.Fade          => FadePrefab,
+            eNodeType.Wait          => WaitPrefab,
+            eNodeType.ShowCharacter => ShowCharacterPrefab,
+            eNodeType.Choice        => ChoicePrefab,
+            _                       => throw new ArgumentException($"[NodeGraph] 프리팹 없는 타입: {type}")
+        };
+    }
+
+    public void CreateNodeToType(eNodeType type)
+    {
+        var node = Instantiate(GetPrefabByType(type));
+        if (EdgePrefab != null) node.edge = EdgePrefab;
+        node.Setup();
+        node.SetCommnadData(CreateDefaultCommand(type, nodes.Count));
+        node.ApplyBgColor(NodeCreatorUI.instance.GetColor(type));
+
+        node.transform.position = Vector3.zero;
+        nodes.Add(node);
     }
 
     [Header("CutScene")]
@@ -216,8 +263,8 @@ public class NodeGraphManager : MonoBehaviour
 
     [Header("Layout")]
     public int nodesPerRow = 6;
-    public float spacingX = 1.5f;
-    public float spacingZ = 1.2f;
+    public float spacingX = 2.5f;
+    public float spacingZ = 2.0f;
     public Vector3 startPos = new Vector3(-4f, 0, 3f);
 
     [Header("Logic")]
@@ -225,42 +272,51 @@ public class NodeGraphManager : MonoBehaviour
 
     public void CreateNodeToTsvCommand()
     {
+        // 0) 기존 노드 전부 제거
+        foreach (var n in nodes)
+            if (n != null) Destroy(n.gameObject);
+        nodes.Clear();
+
         // 1) 노드 생성
         var data = StoryDatabase.instance.Commands;
         for (int i = 0; i < data.Count; i++)
         {
-            BaseNode node = null;
-            switch (data[i].StateStr)
+            eNodeType nodeType;
+            try
             {
-                case "say":
-                    node = Instantiate(NodePrefab1);
-                    break;
-                case "fade":
-                    node = Instantiate(NodePrefab2);
-                    break;
-                case "wait":
-                    node = Instantiate(NodePrefab3);
-                    break;
-                case "showcharacter":
-                    node = Instantiate(NodePrefab4);
-                    break;
-                case "choice":
-                    node = Instantiate(NodePrefab5);
-                    break;
-                default:
-                    Debug.LogWarning($"[NodeGraph] 알 수 없는 타입: {data[i].StateStr}");
-                    continue;
+                nodeType = StateStrToNodeType(data[i].StateStr);
+            }
+            catch (ArgumentException e)
+            {
+                Debug.LogWarning(e.Message);
+                continue;
             }
 
-            node.SetCommnadData(data[i]);
+            var prefab = GetPrefabByType(nodeType);
+            if (prefab == null)
+            {
+                Debug.LogError($"[NodeGraph] {nodeType} 프리팹이 Inspector에 할당되지 않았습니다.");
+                continue;
+            }
+            BaseNode node = Instantiate(prefab);
+            if (EdgePrefab != null)
+                node.edge = EdgePrefab;
+            else
+                Debug.LogError($"[NodeGraph] EdgePrefab이 할당되지 않았습니다. 오브젝트: '{gameObject.name}'");
 
-            // 왼→오, 위→아래 흐름형 배치
+            node.Setup();
+            node.SetCommnadData(data[i]);
+            node.ApplyBgColor(NodeCreatorUI.instance.GetColor(nodeType));
+
+            // 왼→오, 위→아래 흐름형 배치 (노드 자신의 크기 + 여백 반영)
             int col = nodes.Count % nodesPerRow;
             int row = nodes.Count / nodesPerRow;
+            float stepX = node.nodeSize.x + spacingX;
+            float stepZ = node.nodeSize.y + spacingZ;
             node.transform.position = new Vector3(
-                startPos.x + col * spacingX,
+                startPos.x + col * stepX,
                 0f,
-                startPos.z - row * spacingZ
+                startPos.z - row * stepZ
             );
 
             nodes.Add(node);
@@ -441,7 +497,9 @@ public class NodeGraphManager : MonoBehaviour
         }
 
         // 4) 파일 저장 (원본이름_날짜시간.tsv)
-        string originalName = Path.GetFileNameWithoutExtension(StoryDatabase.instance.resourcesPath);
+        string originalName = StoryDatabase.instance.tsvAsset != null
+            ? StoryDatabase.instance.tsvAsset.name
+            : "story";
         string timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
         string fileName = $"{originalName}_{timestamp}.tsv";
 
@@ -536,7 +594,6 @@ public class NodeGraphManager : MonoBehaviour
         // 에디터 노드 상태 보존 (복귀 시 복원용)
         CutSceneData.EditorCommands = new List<TsvCommand>(commands);
         if (StoryDatabase.instance != null)
-            CutSceneData.EditorResourcesPath = StoryDatabase.instance.resourcesPath;
 
         // static 컨테이너에 재생 데이터 전달
         CutSceneData.Commands = commands;

@@ -113,8 +113,9 @@ public class Edge : MonoBehaviour
         if (targetDot == null)
             targetDot = Instantiate(prefab);
 
+        // 자동 연결 시 끝점 표시 불필요 — prevButton 위에 겹치지 않도록 숨김
+        targetDot.SetActive(false);
         DrawCurve(start, end);
-        targetDot.transform.position = end;
     }
 
     public void SetDrawLine(Vector3 start, Vector3 end)

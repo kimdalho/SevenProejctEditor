@@ -5,11 +5,11 @@ using UnityEngine;
 
 public static class TsvParser
 {
-    // TSV ÇÑ ÁÙ ºÐ¸® (ÅÇ ±âÁØ, ±âº»ÀûÀÎ ÀÌ½ºÄÉÀÌÇÁ¸¸ Áö¿ø)
-    // ÇÊ¿äÇÏ¸é ÀÌÁßµû¿ÈÇ¥ Ã³¸®/ÀÌ½ºÄÉÀÌÇÁ °­È­ °¡´É.
+    // TSV ï¿½ï¿½ ï¿½ï¿½ ï¿½Ð¸ï¿½ (ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½, ï¿½âº»ï¿½ï¿½ï¿½ï¿½ ï¿½Ì½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½)
+    // ï¿½Ê¿ï¿½ï¿½Ï¸ï¿½ ï¿½ï¿½ï¿½ßµï¿½ï¿½ï¿½Ç¥ Ã³ï¿½ï¿½/ï¿½Ì½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½È­ ï¿½ï¿½ï¿½ï¿½.
     private static List<string> SplitTsvLine(string line)
     {
-        // °¡Àå ´Ü¼ø/¾ÈÁ¤ÀûÀÎ ¹æ¹ý: '\t' ´Ü¼ø ºÐ¸® ÈÄ ºÎÁ·ºÐ ºóÄ­ ÆÐµùÀº È£ÃâºÎ¿¡¼­ Ã³¸®
+        // ï¿½ï¿½ï¿½ï¿½ ï¿½Ü¼ï¿½/ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½: '\t' ï¿½Ü¼ï¿½ ï¿½Ð¸ï¿½ ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½Ä­ ï¿½Ðµï¿½ï¿½ï¿½ È£ï¿½ï¿½Î¿ï¿½ï¿½ï¿½ Ã³ï¿½ï¿½
         return new List<string>(line.Split('\t'));
     }
 
@@ -21,7 +21,7 @@ public static class TsvParser
 
     public static List<TsvCommand> Parse(string tsvText)
     {
-        // BOM/°³Çà Á¤¸®
+        // BOM/ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½
         if (string.IsNullOrEmpty(tsvText)) return new List<TsvCommand>();
         tsvText = tsvText.Replace("\r\n", "\n").Replace("\r", "\n");
 
@@ -29,7 +29,7 @@ public static class TsvParser
         string headerLine = sr.ReadLine();
         if (headerLine == null) return new List<TsvCommand>();
 
-        // ÁÖ¼®/ºóÁÙ ½ºÅµÇØ°¡¸ç Çì´õ Ã£±â
+        // ï¿½Ö¼ï¿½/ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½Åµï¿½Ø°ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ Ã£ï¿½ï¿½
         while (headerLine != null && (headerLine.Length == 0 || headerLine.StartsWith("#")))
             headerLine = sr.ReadLine();
 
@@ -47,10 +47,10 @@ public static class TsvParser
 
             var cols = SplitTsvLine(line);
 
-            // ÄÃ·³ °³¼ö ºÎÁ·ÇÏ¸é ºó¹®ÀÚ¿­·Î ÆÐµù
+            // ï¿½Ã·ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½Ï¸ï¿½ ï¿½ï¿½ï¿½Ú¿ï¿½ï¿½ï¿½ ï¿½Ðµï¿½
             while (cols.Count < headers.Count) cols.Add(string.Empty);
 
-            // ¸ÊÇÎ
+            // ï¿½ï¿½ï¿½ï¿½
             var record = new TsvCommand();
             var dict = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 
@@ -60,12 +60,12 @@ public static class TsvParser
                 if (string.IsNullOrEmpty(key)) continue;
                 var val = i < cols.Count ? cols[i] : string.Empty;
 
-                // ÄÚ¾î ÄÃ·³ Ã³¸®
+                // ï¿½Ú¾ï¿½ ï¿½Ã·ï¿½ Ã³ï¿½ï¿½
                 if (key.Equals("Id", StringComparison.OrdinalIgnoreCase))
                 {
                     if (!int.TryParse(val, out record.Id))
                     {
-                        Debug.LogWarning($"[TSV] Invalid Id at line {lineNo}: '{val}' ¡æ default 0");
+                        Debug.LogWarning($"[TSV] Invalid Id at line {lineNo}: '{val}' ï¿½ï¿½ default 0");
                         record.Id = 0;
                     }
                     continue;
@@ -82,12 +82,13 @@ public static class TsvParser
                     continue;
                 }
 
-                // È®Àå ÄÃ·³Àº ÀüºÎ Fields·Î
+                // È®ï¿½ï¿½ ï¿½Ã·ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ Fieldsï¿½ï¿½
                 dict[key] = val;
             }
 
-            // ´©¶ô ¹æ¾î
-            record.StateStr ??= string.Empty;
+            // StateStrê°€ ë¹„ì–´ìžˆìœ¼ë©´ ìœ íš¨í•œ ì»¤ë§¨ë“œê°€ ì•„ë‹ˆë¯€ë¡œ ê±´ë„ˆëœ€
+            if (string.IsNullOrWhiteSpace(record.StateStr)) continue;
+
             record.Fields = dict;
 
             results.Add(record);

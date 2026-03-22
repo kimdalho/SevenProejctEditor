@@ -3,8 +3,6 @@ using System.Collections;
 using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
-using UnityEngine.EventSystems;
-using UnityEngine.UI;
 
 /// <summary>
 /// ���⼭ ������ �ϳ� �߸���
@@ -14,10 +12,16 @@ using UnityEngine.UI;
 /// </summary>
 
 
-public class BaseNode : MonoBehaviour , INodeDataGetService
+public abstract class BaseNode : MonoBehaviour , INodeDataGetService
 {
     [Header("Prefab")]
+    public SpriteRenderer bg_sprite;
     public GameObject edge;
+    public TMP_FontAsset nodeFont;
+
+    [Header("Size")]
+    [Tooltip("노드의 월드 크기 (X=가로, Y=세로). 이 값 하나로 Canvas·버튼·콜라이더가 자동 맞춰짐.")]
+    public Vector2 nodeSize = new Vector2(1.4f, 1.0f);
 
     [Header("Data")]
     // ===== NodeData =====
@@ -55,9 +59,6 @@ public class BaseNode : MonoBehaviour , INodeDataGetService
 
     public TsvCommand tsvCommand;
 
-    protected RectTransform contentContainer;
-    protected bool nodeUIBuilt = false;
-
     public void Awake()
     {
         if (!cam) cam = Camera.main;
@@ -72,6 +73,33 @@ public class BaseNode : MonoBehaviour , INodeDataGetService
             nextButton.press += OnPressNext;
             nextButton.endPress += OnNextEndPress;
         }
+
+        // nodeSize 기준으로 Canvas·버튼·콜라이더 동기화
+        ApplyNodeSize();
+    }
+
+    /// <summary>
+    /// 노드 인스턴스화 직후 호출. BG bounds가 확정된 시점에 콜라이더·버튼 위치를 정확히 맞춘다.
+    /// </summary>
+    public void Setup()
+    {
+        if (bg_sprite == null) return;
+
+        var bounds = bg_sprite.bounds;
+
+        // ── BoxCollider: XY 평면 스프라이트 기준 (Z = 얇은 깊이) ──
+        var col = GetComponent<BoxCollider>();
+        if (col != null)
+            col.size = new Vector3(bounds.size.x, bounds.size.y, 0.1f);
+
+        // ── 버튼: BG 실제 좌우 끝 ──────────────────────────
+        Vector3 leftLocal  = transform.InverseTransformPoint(
+            new Vector3(bounds.min.x, bounds.center.y, bounds.center.z));
+        Vector3 rightLocal = transform.InverseTransformPoint(
+            new Vector3(bounds.max.x, bounds.center.y, bounds.center.z));
+
+        if (prevButton != null) prevButton.transform.localPosition = leftLocal;
+        if (nextButton != null) nextButton.transform.localPosition = rightLocal;
     }
 
     private void OnNextEndPress()
@@ -121,14 +149,27 @@ public class BaseNode : MonoBehaviour , INodeDataGetService
 
     public void OnMouseDown()
     {
-        // InputField 클릭 시 드래그 방지
-        if (IsPointerOverInputField())
-            return;
+        // LinkButton 위를 클릭했으면 노드 드래그 차단
+        if (IsPointerOverLinkButton()) return;
 
         NodeGraphManager.instance.selectNode = this;
+
+        // 에디터 패널 열기
+        NodeEditorPanel.instance?.Open(this);
+
         dragging = true;
         BeginDrag();
         Picked?.Invoke(this);
+    }
+
+    private bool IsPointerOverLinkButton()
+    {
+        var ray = cam.ScreenPointToRay(Input.mousePosition);
+        var hits = Physics.RaycastAll(ray);
+        foreach (var hit in hits)
+            if (hit.collider.GetComponent<LinkButton>() != null)
+                return true;
+        return false;
     }
 
     void BeginDrag()
@@ -149,30 +190,29 @@ public class BaseNode : MonoBehaviour , INodeDataGetService
         }
     }
 
-    private void FixedUpdate()
+    private void Update()
     {
         if (!dragging) return;
 
-        // 1) ������ �� ��� ��Ʈ
+        // Screen Space Overlay UI가 OnMouseUp을 가로챌 때를 대비한 백업
+        if (Input.GetMouseButtonUp(0))
+        {
+            OnMouseUp();
+            return;
+        }
+
         var inputPos = (Input.touchCount > 0) ? (Vector3)Input.GetTouch(0).position : Input.mousePosition;
-        var ray = cam.ScreenPointToRay(inputPos);
+        var ray   = cam.ScreenPointToRay(inputPos);
         var plane = new Plane(Vector3.up, new Vector3(0f, transform.position.y, 0f));
         if (plane.Raycast(ray, out var enter))
-        {
-            var hit = ray.GetPoint(enter);
-            mousePos = hit + _dragOffset;  // ������ ����
-            
-        }
+            mousePos = ray.GetPoint(enter) + _dragOffset;
         else
-        {
             mousePos = transform.position;
-            
-        }      
 
         Dragging?.Invoke(this, transform.position);
         SetPosition(mousePos);
 
-        if(nextEdge != null && NextNode != null)
+        if (nextEdge != null && NextNode != null)
             nextEdge.SetNameless(nextButton.transform.position, NextNode.prevButton.transform.position);
 
         UpdateAllIncomingEdges();
@@ -193,6 +233,12 @@ public class BaseNode : MonoBehaviour , INodeDataGetService
 
     public void OnSnapshot()
     {
+        if (snap <= 0f)
+        {
+            UpdateAllIncomingEdges();
+            return;
+        }
+
         Vector2Int gridPos = WorldToRectGrid(transform.position, snap);
         Vector3 snapPos = RectGridToWorld(gridPos, snap);
 
@@ -270,13 +316,17 @@ public class BaseNode : MonoBehaviour , INodeDataGetService
         else if (cmd.Has("duration"))
             wait = cmd.GetFloat("duration", 0f);
 
-        idTmp.text = $"ID {cmd.Id}";
-        statTmp.text = cmd.StateStr;
+        if (nodeFont != null)
+        {
+            if (idTmp != null) idTmp.font = nodeFont;
+            if (statTmp != null) statTmp.font = nodeFont;
+        }
+        if (idTmp != null)   idTmp.text   = $"ID {cmd.Id}";
+        else Debug.LogWarning($"[BaseNode] idTmp가 null입니다 — 프리팹 '{gameObject.name}'에서 AutoSetup을 실행하세요.");
+        if (statTmp != null) statTmp.text = cmd.StateStr;
+        else Debug.LogWarning($"[BaseNode] statTmp가 null입니다 — 프리팹 '{gameObject.name}'에서 AutoSetup을 실행하세요.");
 
         gameObject.name = $"node {cmd.Id}";
-
-        if (!nodeUIBuilt) { BuildNodeUI(); nodeUIBuilt = true; }
-        RefreshNodeUI();
     }
 
     public void SetLinkNext(BaseNode baseNode)
@@ -330,187 +380,115 @@ public class BaseNode : MonoBehaviour , INodeDataGetService
 
     }
 
-    // ── virtual UI 빌드/갱신 ─────────────────────────────
+    // ── Size Apply ───────────────────────────────────────
 
-    protected virtual void BuildNodeUI() { }
-    protected virtual void RefreshNodeUI() { }
-
-    // ── 드래그 가드 ──────────────────────────────────────
-
-    protected bool IsPointerOverInputField()
+    /// <summary>
+    /// nodeSize(월드 단위) 기준으로 Canvas·Background·버튼·콜라이더를 한 번에 맞춘다.
+    /// Inspector에서 nodeSize만 바꾸면 나머지가 자동으로 따라온다.
+    /// </summary>
+    public void ApplyBgColor(Color color)
     {
-        if (EventSystem.current == null) return false;
-        var pointer = new PointerEventData(EventSystem.current) { position = Input.mousePosition };
-        var results = new List<RaycastResult>();
-        EventSystem.current.RaycastAll(pointer, results);
-        foreach (var r in results)
-        {
-            if (r.gameObject.GetComponent<TMP_InputField>() != null ||
-                r.gameObject.GetComponentInParent<TMP_InputField>() != null)
-                return true;
-        }
-        return false;
+        if (bg_sprite != null) bg_sprite.color = color;
     }
 
-    // ── UI 헬퍼: 콘텐츠 컨테이너 ────────────────────────
-
-    protected RectTransform GetOrCreateContentContainer()
+    public void ApplyNodeSize()
     {
-        if (contentContainer != null) return contentContainer;
+        float w = nodeSize.x;
+        float h = nodeSize.y;
 
+        // ── BG 스프라이트 스케일 ─────────────────────────
+        if (bg_sprite != null && bg_sprite.sprite != null)
+        {
+            // 스프라이트의 픽셀→월드 단위 네이티브 크기
+            var rect = bg_sprite.sprite.rect;
+            float ppu  = bg_sprite.sprite.pixelsPerUnit;
+            float nativeW = rect.width  / ppu;
+            float nativeH = rect.height / ppu;
+
+            bg_sprite.transform.localScale = new Vector3(
+                nativeW > 0f ? w / nativeW : 1f,
+                nativeH > 0f ? h / nativeH : 1f,
+                1f
+            );
+        }
+
+        // ── Canvas sizeDelta + 마스크 ────────────────────
         var canvas = GetComponentInChildren<Canvas>();
-        if (canvas == null) return null;
-
-        var existing = canvas.transform.Find("NodeContent");
-        if (existing != null)
+        if (canvas != null)
         {
-            contentContainer = existing.GetComponent<RectTransform>();
-            return contentContainer;
+            float s = canvas.transform.localScale.x;
+            if (s > 0f)
+                canvas.GetComponent<RectTransform>().sizeDelta = new Vector2(w / s, h / s);
+
         }
 
-        var obj = new GameObject("NodeContent");
-        obj.transform.SetParent(canvas.transform, false);
-
-        contentContainer = obj.AddComponent<RectTransform>();
-        contentContainer.localScale = new Vector3(0.1f, 0.1f, 0.1f);
-        contentContainer.anchoredPosition = new Vector2(0f, -0.055f);
-        contentContainer.sizeDelta = new Vector2(0.9f, 2f);
-
-        var layout = obj.AddComponent<VerticalLayoutGroup>();
-        layout.childForceExpandHeight = false;
-        layout.childForceExpandWidth = true;
-        layout.childControlHeight = false;
-        layout.childControlWidth = true;
-        layout.spacing = -0.02f;
-        layout.childAlignment = TextAnchor.UpperCenter;
-
-        return contentContainer;
-    }
-
-    // ── UI 헬퍼: TMP_InputField 생성 ─────────────────────
-
-    protected TMP_InputField CreateTMPInputField(Transform parent, string name,
-        string text, string placeholder, float height, float fontSize,
-        TMP_InputField.ContentType contentType, bool multiline,
-        Action<string> onChanged)
-    {
-        // Root
-        var root = new GameObject(name);
-        root.transform.SetParent(parent, false);
-        var rootRT = root.AddComponent<RectTransform>();
-        rootRT.sizeDelta = new Vector2(0f, height);
-
-        var bg = root.AddComponent<Image>();
-        bg.color = new Color(0.15f, 0.15f, 0.15f, 0.8f);
-
-        // Text Area
-        var textAreaObj = new GameObject("Text Area");
-        textAreaObj.transform.SetParent(root.transform, false);
-        var textAreaRT = textAreaObj.AddComponent<RectTransform>();
-        textAreaRT.anchorMin = Vector2.zero;
-        textAreaRT.anchorMax = Vector2.one;
-        textAreaRT.offsetMin = new Vector2(0.02f, 0.01f);
-        textAreaRT.offsetMax = new Vector2(-0.02f, -0.01f);
-        textAreaObj.AddComponent<RectMask2D>();
-
-        // Text
-        var textObj = new GameObject("Text");
-        textObj.transform.SetParent(textAreaObj.transform, false);
-        var textRT = textObj.AddComponent<RectTransform>();
-        textRT.anchorMin = Vector2.zero;
-        textRT.anchorMax = Vector2.one;
-        textRT.offsetMin = Vector2.zero;
-        textRT.offsetMax = Vector2.zero;
-        var tmp = textObj.AddComponent<TextMeshProUGUI>();
-        tmp.fontSize = fontSize;
-        tmp.color = Color.white;
-        tmp.enableWordWrapping = multiline;
-        tmp.overflowMode = TextOverflowModes.Overflow;
-        tmp.richText = false;
-
-        // Placeholder
-        var phObj = new GameObject("Placeholder");
-        phObj.transform.SetParent(textAreaObj.transform, false);
-        var phRT = phObj.AddComponent<RectTransform>();
-        phRT.anchorMin = Vector2.zero;
-        phRT.anchorMax = Vector2.one;
-        phRT.offsetMin = Vector2.zero;
-        phRT.offsetMax = Vector2.zero;
-        var phTmp = phObj.AddComponent<TextMeshProUGUI>();
-        phTmp.fontSize = fontSize;
-        phTmp.color = new Color(1f, 1f, 1f, 0.3f);
-        phTmp.text = placeholder ?? "";
-        phTmp.enableWordWrapping = multiline;
-        phTmp.fontStyle = FontStyles.Italic;
-
-        // InputField
-        var input = root.AddComponent<TMP_InputField>();
-        input.textViewport = textAreaRT;
-        input.textComponent = tmp;
-        input.placeholder = phTmp;
-        input.text = text ?? "";
-        input.pointSize = fontSize;
-        input.contentType = contentType;
-        input.caretWidth = 2;
-
-        if (multiline)
-            input.lineType = TMP_InputField.LineType.MultiLineNewline;
-
-        if (onChanged != null)
-            input.onValueChanged.AddListener((val) => onChanged(val));
-
-        return input;
-    }
-
-    // ── UI 헬퍼: Enum 셀렉터 (클릭 순환 라벨) ───────────
-
-    protected TextMeshProUGUI CreateEnumSelector(Transform parent, string name,
-        Color color, float fontSize, Action onClick)
-    {
-        var obj = new GameObject(name);
-        obj.transform.SetParent(parent, false);
-
-        var rt = obj.AddComponent<RectTransform>();
-        rt.sizeDelta = new Vector2(0f, fontSize + 0.04f);
-
-        var tmp = obj.AddComponent<TextMeshProUGUI>();
-        tmp.fontSize = fontSize;
-        tmp.alignment = TextAlignmentOptions.Center;
-        tmp.color = color;
-        tmp.raycastTarget = true;
-        tmp.enableWordWrapping = false;
-        tmp.overflowMode = TextOverflowModes.Overflow;
-
-        if (onClick != null)
+        // ── Prev / Next 버튼: BG 중심에서 X축 ±w/2 ────
+        if (bg_sprite != null)
         {
-            var trigger = obj.AddComponent<EventTrigger>();
-            var entry = new EventTrigger.Entry { eventID = EventTriggerType.PointerClick };
-            entry.callback.AddListener((_) => onClick());
-            trigger.triggers.Add(entry);
+            Vector3 bgPos = bg_sprite.transform.localPosition;
+            if (prevButton != null)
+                prevButton.transform.localPosition = new Vector3(bgPos.x - w * 0.5f, bgPos.y, bgPos.z);
+            if (nextButton != null)
+                nextButton.transform.localPosition = new Vector3(bgPos.x + w * 0.5f, bgPos.y, bgPos.z);
         }
 
-        return tmp;
+        // ── BoxCollider: XY 평면 스프라이트 기준 ────────
+        var col = GetComponent<BoxCollider>();
+        if (col != null)
+            col.size = new Vector3(w, h, 0.1f);
     }
 
-    // ── UI 헬퍼: 읽기 전용 라벨 ─────────────────────────
+    // ── Auto Setup ───────────────────────────────────────
 
-    protected TextMeshProUGUI CreateLabel(Transform parent, string name,
-        Color color, float fontSize)
+    /// <summary>
+    /// 컴포넌트를 처음 붙일 때 자동 호출. 직접 실행하려면 우클릭 → Auto Setup.
+    /// </summary>
+    [ContextMenu("Auto Setup")]
+    public void AutoSetup()
     {
-        var obj = new GameObject(name);
-        obj.transform.SetParent(parent, false);
+        // BG 스프라이트: "BG" 이름 오브젝트 우선, 없으면 첫 번째 SpriteRenderer, 없으면 자동 생성
+        var bgTr = transform.Find("BG");
+        if (bgTr != null)
+            bg_sprite = bgTr.GetComponent<SpriteRenderer>();
+        if (bg_sprite == null)
+            bg_sprite = GetComponentInChildren<SpriteRenderer>(true);
+        if (bg_sprite == null)
+        {
+            var bgGo = new GameObject("BG");
+            bgGo.transform.SetParent(transform, false);
+            bgGo.transform.localRotation = Quaternion.Euler(90f, 0f, 0f);
+            bg_sprite = bgGo.AddComponent<SpriteRenderer>();
+            Debug.Log($"[AutoSetup] '{gameObject.name}' — BG 오브젝트 자동 생성. Inspector에서 스프라이트를 할당하세요.");
+        }
 
-        var rt = obj.AddComponent<RectTransform>();
-        rt.sizeDelta = new Vector2(0f, fontSize + 0.04f);
+        // LinkButton: isPrev 플래그로 구분
+        foreach (var btn in GetComponentsInChildren<LinkButton>(true))
+        {
+            if (btn.isPrev) prevButton = btn;
+            else            nextButton = btn;
+        }
 
-        var tmp = obj.AddComponent<TextMeshProUGUI>();
-        tmp.fontSize = fontSize;
-        tmp.alignment = TextAlignmentOptions.Center;
-        tmp.color = color;
-        tmp.raycastTarget = false;
-        tmp.enableWordWrapping = false;
-        tmp.overflowMode = TextOverflowModes.Overflow;
+        // TMP 라벨: Canvas 직계 자식 순서로 구분 (0번=idTmp, 1번=statTmp)
+        var canvas = GetComponentInChildren<Canvas>(true);
+        if (canvas != null)
+        {
+            var tmpsInCanvas = new System.Collections.Generic.List<TextMeshProUGUI>();
+            foreach (Transform child in canvas.transform)
+            {
+                var tmp = child.GetComponent<TextMeshProUGUI>();
+                if (tmp != null) tmpsInCanvas.Add(tmp);
+            }
+            if (tmpsInCanvas.Count > 0) idTmp   = tmpsInCanvas[0];
+            if (tmpsInCanvas.Count > 1) statTmp = tmpsInCanvas[1];
+        }
 
-        return tmp;
+#if UNITY_EDITOR
+        UnityEditor.EditorUtility.SetDirty(this);
+#endif
     }
+
+    // 컴포넌트를 Inspector에서 처음 붙일 때 Unity가 자동 호출
+    private void Reset() => AutoSetup();
+
 }
+

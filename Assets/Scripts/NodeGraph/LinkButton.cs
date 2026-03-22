@@ -1,7 +1,4 @@
 using System;
-using System.Collections;
-using System.Collections.Generic;
-using UnityEditor.Sprites;
 using UnityEngine;
 
 public class LinkButton : MonoBehaviour
@@ -35,12 +32,12 @@ public class LinkButton : MonoBehaviour
         var inputPos = (Input.touchCount > 0) ? (Vector3)Input.GetTouch(0).position : Input.mousePosition;
         var ray = cam.ScreenPointToRay(inputPos);
 
-        // ¿ÀºêÁ§Æ®ÀÇ ÇöÀç ³ôÀÌ¸¦ Áö³ª´Â Æò¸é
+        // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Æ®ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½Ì¸ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½
         var plane = new Plane(Vector3.up, new Vector3(0f, transform.position.y, 0f));
         if (plane.Raycast(ray, out var enter))
         {
             var hit = ray.GetPoint(enter);
-            _dragOffset = transform.position - hit;   // Áß½É-Å¬¸¯ÁöÁ¡ Â÷ÀÌ º¸Á¸
+            _dragOffset = transform.position - hit;   // ï¿½ß½ï¿½-Å¬ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½
         }
         else
         {
@@ -58,14 +55,14 @@ public class LinkButton : MonoBehaviour
     {
         if (!isPress) return;
 
-        // 1) Æ÷ÀÎÅÍ ¡æ Æò¸é È÷Æ®
+        // 1) ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ ï¿½ï¿½ï¿½ ï¿½ï¿½Æ®
         var inputPos = (Input.touchCount > 0) ? (Vector3)Input.GetTouch(0).position : Input.mousePosition;
         var ray = cam.ScreenPointToRay(inputPos);
         var plane = new Plane(Vector3.up, new Vector3(0f, transform.position.y, 0f));
         if (plane.Raycast(ray, out var enter))
         {
             var hit = ray.GetPoint(enter);
-            mousePos = hit + _dragOffset;  // ¿ÀÇÁ¼Â Àû¿ë
+            mousePos = hit + _dragOffset;  // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½
             //Debug.Log("xx 1" + mousePos);
         }
         else
@@ -89,13 +86,16 @@ public class LinkButton : MonoBehaviour
 
 
 
-    private void FixedUpdate()
+    private void Update()
     {
-        OnPressing();
+        if (isPress && Input.GetMouseButtonUp(0))
+            EndPress();
+        else
+            OnPressing();
     }
+
     public void OnMouseUp()
     {
         EndPress();
-        
     }
 }
